@@ -212,11 +212,9 @@ public class NiklasifieraAnalyzer
     }
 
     private static bool IsIncorrectlySplit(ParameterListSyntax _)
-    {
         // For 0-1 parameters, they can be on a single line, but if split, that's also ok
         // We'll be lenient here and not flag 0-1 parameter splits as errors
-        return false;
-    }
+        => false;
 
     private static bool IsCorrectlyFormatted
         (
@@ -494,7 +492,8 @@ public class NiklasifieraAnalyzer
         }
 
         // RULE: If there's a primary constructor, colon should not be on same line as closing parenthesis
-        if (parentType is ClassDeclarationSyntax classDecl && classDecl.ParameterList is not null)
+        if (parentType is ClassDeclarationSyntax classDecl &&
+            classDecl.ParameterList is not null)
         {
             var primaryConstructorCloseLine =
                 sourceText.Lines
@@ -559,7 +558,7 @@ public class NiklasifieraAnalyzer
         }
 
         // RULE: Each subsequent base type should be on its own line with leading comma
-        for (int i = 1; i < baseTypes.Count; i++)
+        for (var i = 1; i < baseTypes.Count; i++)
         {
             var currentBaseTypeLine =
                 sourceText.Lines
@@ -600,7 +599,7 @@ public class NiklasifieraAnalyzer
             var currentBaseTypeStartPosition =
                 baseTypes[i].SpanStart;
 
-            string textAfterComma =
+            var textAfterComma =
                 sourceText
                     .ToString(TextSpan.FromBounds(commaEndPosition, currentBaseTypeStartPosition));
 
@@ -626,7 +625,7 @@ public class NiklasifieraAnalyzer
     {
         var indentation = "";
 
-        foreach (char c in line)
+        foreach (var c in line)
         {
             if (c is ' ' or '\t')
             {

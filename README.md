@@ -4,7 +4,7 @@
 [![NuGet](https://img.shields.io/nuget/v/Niklasifiera.svg)](https://www.nuget.org/packages/Niklasifiera/)
 [![License](https://img.shields.io/github/license/niklaskallander/vs-niklasifiera.svg)](LICENSE)
 
-![Alt text](icon-big.png?raw=true "Niklasifiera Icon")
+![Alt text](icon-big.png "Niklasifiera Icon")
 
 A C# Roslyn analyzer that enforces consistent formatting for method signatures and type inheritance declarations. Niklasifiera helps maintain clean, readable code by automatically detecting and fixing formatting issues in your C# projects.
 

@@ -440,7 +440,7 @@ public class NiklasifieraUnitTest
     private const string SingleInheritanceOnSameLine =
         """
         using System;
-        
+
         namespace TestNamespace
         {
             public class TestClass {|#0:: IDisposable|}
@@ -454,7 +454,7 @@ public class NiklasifieraUnitTest
     private const string SingleInheritanceOnSameLineFixed =
         """
         using System;
-        
+
         namespace TestNamespace
         {
             public class TestClass
@@ -470,7 +470,7 @@ public class NiklasifieraUnitTest
         """
         using System;
         using System.Data;
-        
+
         namespace TestNamespace
         {
             public class TestClass
@@ -489,7 +489,7 @@ public class NiklasifieraUnitTest
         """
         using System;
         using System.Data;
-        
+
         namespace TestNamespace
         {
             public class TestClass
@@ -497,6 +497,36 @@ public class NiklasifieraUnitTest
                 IDbConnection DbConnection,
                 IDbTransaction DbTransaction
                 )
+                : IDisposable
+            {
+                public void Dispose() { }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    private const string SingleInheritanceWithBadIndentation =
+        """
+        using System;
+
+        namespace TestNamespace
+        {
+            public class TestClass
+                 {|#0:: IDisposable|}
+            {
+                public void Dispose() { }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    private const string SingleInheritanceWithBadIndentationExpectedFixed =
+        """
+        using System;
+
+        namespace TestNamespace
+        {
+            public class TestClass
                 : IDisposable
             {
                 public void Dispose() { }
@@ -597,6 +627,7 @@ public class NiklasifieraUnitTest
     [TestMethod]
     [DataRow(SingleInheritanceOnSameLine, SingleInheritanceOnSameLineFixed, "TestClass", DisplayName = "Single inheritance on same line")]
     [DataRow(SingleInheritanceWithPrimaryConstructorOnSameLine, SingleInheritanceWithPrimaryConstructorOnSameLineFixed, "TestClass", DisplayName = "Single inheritance with primary constructor on same line")]
+    [DataRow(SingleInheritanceWithBadIndentation, SingleInheritanceWithBadIndentationExpectedFixed, "TestClass", DisplayName = "Single inheritance with bad indentation")]
     public async Task InheritanceDiagnostic_Tests
         (
         [StringSyntax("c#-test")] string testCode,

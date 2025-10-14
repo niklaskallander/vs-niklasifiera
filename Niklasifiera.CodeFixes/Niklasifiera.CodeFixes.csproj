@@ -5,6 +5,7 @@
     <IsPackable>false</IsPackable>
     <RootNamespace>Niklasifiera</RootNamespace>
     <LangVersion>latest</LangVersion>
+    <ImplicitUsings>true</ImplicitUsings>
   </PropertyGroup>
 
   <ItemGroup>

@@ -124,3 +124,17 @@ public class TestClass4
 {
     public void Dispose() { }
 }
+
+// Test case for single inheritance with bad indentation
+public class TestClass5
+     : IDisposable
+{
+    public void Dispose() { }
+}
+
+// This should be formatted as:
+public class TestClass6
+    : IDisposable
+{
+    public void Dispose() { }
+}
