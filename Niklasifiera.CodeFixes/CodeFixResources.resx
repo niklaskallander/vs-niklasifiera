@@ -125,4 +125,8 @@
     <value>Format inheritance</value>
     <comment>The title of the inheritance code fix.</comment>
   </data>
+  <data name="ConditionalOperatorCodeFixTitle" xml:space="preserve">
+    <value>Format conditional operator</value>
+    <comment>The title of the conditional operator code fix.</comment>
+  </data>
 </root>

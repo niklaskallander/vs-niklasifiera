@@ -540,31 +540,211 @@ public class NiklasifieraUnitTest
 
     #endregion
 
-    // Helper method to get the signature diagnostic descriptor
-    private static DiagnosticResult SignatureDiagnostic()
+    #region Test Case Data - Conditional Operator Diagnostics
+
+    [StringSyntax("c#-test")]
+    private const string ConditionalOperatorSingleLine =
+        """
+        namespace TestNamespace
+        {
+            public class TestClass
+            {
+                public string TestMethod()
+                {
+                    var condition = true;
+                    return {|#0:condition ? "Yes" : "No"|};
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    private const string ConditionalOperatorSingleLineFixed =
+        """
+        namespace TestNamespace
+        {
+            public class TestClass
+            {
+                public string TestMethod()
+                {
+                    var condition = true;
+                    return condition
+                        ? "Yes"
+                        : "No";
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    private const string ConditionalOperatorAssignmentSingleLine =
+        """
+        namespace TestNamespace
+        {
+            public class TestClass
+            {
+                public string TestMethod()
+                {
+                    var condition = true;
+                    var result = {|#0:condition ? "Yes" : "No"|};
+                    return result;
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    private const string ConditionalOperatorAssignmentSingleLineFixed =
+        """
+        namespace TestNamespace
+        {
+            public class TestClass
+            {
+                public string TestMethod()
+                {
+                    var condition = true;
+                    var result =
+                        condition
+                            ? "Yes"
+                            : "No";
+                    return result;
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    private const string ConditionalOperatorPartialSplit =
+        """
+        namespace TestNamespace
+        {
+            public class TestClass
+            {
+                public string TestMethod()
+                {
+                    var condition = true;
+                    return {|#0:condition ?
+                        "Yes" :
+                        "No"|};
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    private const string ConditionalOperatorPartialSplitFixed =
+        """
+        namespace TestNamespace
+        {
+            public class TestClass
+            {
+                public string TestMethod()
+                {
+                    var condition = true;
+                    return condition
+                        ? "Yes"
+                        : "No";
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    private const string ConditionalOperatorWrongIndentation =
+        """
+        namespace TestNamespace
+        {
+            public class TestClass
+            {
+                public string TestMethod()
+                {
+                    var condition = true;
+                    return {|#0:condition
+                    ? "Yes"
+                    : "No"|};
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    private const string ConditionalOperatorWrongIndentationFixed =
+        """
+        namespace TestNamespace
+        {
+            public class TestClass
+            {
+                public string TestMethod()
+                {
+                    var condition = true;
+                    return condition
+                        ? "Yes"
+                        : "No";
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    private const string ConditionalOperatorReturnCorrectlyFormatted =
+        """
+        namespace TestNamespace;
+
+        public class TestClass
+        {
+            public string TestMethod()
+            {
+                var condition = true;
+                return condition
+                    ? "Yes"
+                    : "No";
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    private const string ConditionalOperatorAssignmentCorrectlyFormatted =
+        """
+        namespace TestNamespace;
+
+        public class TestClass
+        {
+            public string TestMethod()
+            {
+                var condition = true;
+                var result =
+                    condition
+                        ? "Yes"
+                        : "No";
+                return result;
+            }
+        }
+        """;
+
+    #endregion
+
+    // Helper class to get diagnostic descriptors
+    private static class DiagnosticHelper
     {
-        var analyzer =
-            new NiklasifieraAnalyzer();
+        private static readonly NiklasifieraAnalyzer Analyzer =
+            new();
 
-        var rule =
-            analyzer
-                .SupportedDiagnostics[0]; // First diagnostic is the signature rule
+        public static DiagnosticResult GetDiagnostic(int ruleIndex)
+        {
+            var rule =
+                Analyzer.SupportedDiagnostics[ruleIndex];
 
-        return VerifyCS.Diagnostic(rule);
-    }
+            return VerifyCS.Diagnostic(rule);
+        }
 
-    // Helper method to get the inheritance diagnostic descriptor  
-    private static DiagnosticResult InheritanceDiagnostic()
-    {
-        var analyzer =
-            new NiklasifieraAnalyzer();
+        public static DiagnosticResult Signature()
+            => GetDiagnostic(0);
 
-        var rule =
-            analyzer
-                .SupportedDiagnostics[1]; // Second diagnostic is the inheritance rule
+        public static DiagnosticResult Inheritance()
+            => GetDiagnostic(1);
 
-        return VerifyCS
-            .Diagnostic(rule);
+        public static DiagnosticResult ConditionalOperator()
+            => GetDiagnostic(2);
     }
 
     // Tests that should produce no diagnostics
@@ -581,6 +761,8 @@ public class NiklasifieraUnitTest
     [DataRow(SingleInheritanceWithPrimaryConstructorCorrectlyFormatted, DisplayName = "Single inheritance with primary constructor correctly formatted")]
     [DataRow(RecordWithOneParameter, DisplayName = "Record with one parameter")]
     [DataRow(RecordWithTwoParametersCorrectlyFormatted, DisplayName = "Record with multiple parameters correctly formatted")]
+    [DataRow(ConditionalOperatorReturnCorrectlyFormatted, DisplayName = "Conditional operator in return correctly formatted")]
+    [DataRow(ConditionalOperatorAssignmentCorrectlyFormatted, DisplayName = "Conditional operator in assignment correctly formatted")]
     public async Task NoDiagnostic_Tests
         (
         [StringSyntax("c#-test")] string testCode
@@ -588,28 +770,42 @@ public class NiklasifieraUnitTest
         => await VerifyCS
             .VerifyAnalyzerAsync(testCode);
 
-    // Tests for signature diagnostics (methods/constructors with multiple parameters on single line)
-    [TestMethod]
-    [DataRow(MethodWithTwoParametersOnSingleLine, MethodWithTwoParametersOnSingleLineFixed, "TestMethod", DisplayName = "Method with two parameters on single line")]
-    [DataRow(ConstructorWithTwoParametersOnSingleLine, ConstructorWithTwoParametersOnSingleLineFixed, "TestClass", DisplayName = "Constructor with two parameters on single line")]
-    [DataRow(MethodWithThreeParametersOnSingleLine, MethodWithThreeParametersOnSingleLineFixed, "TestMethod", DisplayName = "Method with three parameters on single line")]
-    [DataRow(GenericMethodWithMultipleParametersOnSingleLine, GenericMethodWithMultipleParametersOnSingleLineFixed, "ExecuteAsync", DisplayName = "Generic method with multiple parameters on single line")]
-    [DataRow(MethodWithGenericConstraintsOnSingleLine, MethodWithGenericConstraintsOnSingleLineFixed, "ProcessData", DisplayName = "Method with generic constraints on single line")]
-    [DataRow(RecordWithTwoParametersOnSingleLine, RecordWithTwoParametersOnSingleLineFixed, "Person", DisplayName = "Record with two parameters on single line")]
-    public async Task SignatureDiagnostic_Tests
+    // Test data class to reduce primitive obsession
+    public sealed class DiagnosticTestCase
         (
-        [StringSyntax("c#-test")] string testCode,
-        [StringSyntax("c#-test")] string fixedCode,
-        string expectedMethodName
+        string testCode,
+        string fixedCode,
+        string expectedIdentifier
         )
     {
+        public string TestCode { get; init; } = testCode;
+        public string FixedCode { get; init; } = fixedCode;
+        public string ExpectedIdentifier { get; init; } = expectedIdentifier;
+    }
+
+    // Tests for signature diagnostics (methods/constructors with multiple parameters on single line)
+    [TestMethod]
+    [DynamicData(nameof(GetSignatureTestCases), DynamicDataSourceType.Method)]
+    public async Task SignatureDiagnostic_Tests(DiagnosticTestCase testCase)
+    {
         var expected =
-            SignatureDiagnostic()
+            DiagnosticHelper
+                .Signature()
                 .WithLocation(0)
-                .WithArguments(expectedMethodName);
+                .WithArguments(testCase.ExpectedIdentifier);
 
         await VerifyCS
-            .VerifyCodeFixAsync(testCode, expected, fixedCode);
+            .VerifyCodeFixAsync(testCase.TestCode, expected, testCase.FixedCode);
+    }
+
+    private static IEnumerable<object[]> GetSignatureTestCases()
+    {
+        yield return [new DiagnosticTestCase(MethodWithTwoParametersOnSingleLine, MethodWithTwoParametersOnSingleLineFixed, "TestMethod")];
+        yield return [new DiagnosticTestCase(ConstructorWithTwoParametersOnSingleLine, ConstructorWithTwoParametersOnSingleLineFixed, "TestClass")];
+        yield return [new DiagnosticTestCase(MethodWithThreeParametersOnSingleLine, MethodWithThreeParametersOnSingleLineFixed, "TestMethod")];
+        yield return [new DiagnosticTestCase(GenericMethodWithMultipleParametersOnSingleLine, GenericMethodWithMultipleParametersOnSingleLineFixed, "ExecuteAsync")];
+        yield return [new DiagnosticTestCase(MethodWithGenericConstraintsOnSingleLine, MethodWithGenericConstraintsOnSingleLineFixed, "ProcessData")];
+        yield return [new DiagnosticTestCase(RecordWithTwoParametersOnSingleLine, RecordWithTwoParametersOnSingleLineFixed, "Person")];
     }
 
     // Special case for primary constructor with inheritance (different location)
@@ -617,7 +813,8 @@ public class NiklasifieraUnitTest
     public async Task PrimaryConstructorWithInheritanceOnSingleLine_Diagnostic()
     {
         var expected =
-            SignatureDiagnostic()
+            DiagnosticHelper
+                .Signature()
                 .WithLocation(7, 30)
                 .WithArguments("SampleClient");
 
@@ -627,23 +824,57 @@ public class NiklasifieraUnitTest
 
     // Tests for inheritance diagnostics
     [TestMethod]
-    [DataRow(SingleInheritanceOnSameLine, SingleInheritanceOnSameLineFixed, "TestClass", DisplayName = "Single inheritance on same line")]
-    [DataRow(SingleInheritanceWithPrimaryConstructorOnSameLine, SingleInheritanceWithPrimaryConstructorOnSameLineFixed, "TestClass", DisplayName = "Single inheritance with primary constructor on same line")]
-    [DataRow(SingleInheritanceWithBadIndentation, SingleInheritanceWithBadIndentationExpectedFixed, "TestClass", DisplayName = "Single inheritance with bad indentation")]
-    public async Task InheritanceDiagnostic_Tests
-        (
-        [StringSyntax("c#-test")] string testCode,
-        [StringSyntax("c#-test")] string fixedCode,
-        string expectedClassName
-        )
+    [DynamicData(nameof(GetInheritanceTestCases), DynamicDataSourceType.Method)]
+    public async Task InheritanceDiagnostic_Tests(DiagnosticTestCase testCase)
     {
         var expected =
-            InheritanceDiagnostic()
+            DiagnosticHelper
+                .Inheritance()
                 .WithLocation(0)
-                .WithArguments(expectedClassName);
+                .WithArguments(testCase.ExpectedIdentifier);
 
         await VerifyCS
-            .VerifyCodeFixAsync(testCode, expected, fixedCode);
+            .VerifyCodeFixAsync(testCase.TestCode, expected, testCase.FixedCode);
+    }
+
+    private static IEnumerable<object[]> GetInheritanceTestCases()
+    {
+        yield return [new DiagnosticTestCase(SingleInheritanceOnSameLine, SingleInheritanceOnSameLineFixed, "TestClass")];
+        yield return [new DiagnosticTestCase(SingleInheritanceWithPrimaryConstructorOnSameLine, SingleInheritanceWithPrimaryConstructorOnSameLineFixed, "TestClass")];
+        yield return [new DiagnosticTestCase(SingleInheritanceWithBadIndentation, SingleInheritanceWithBadIndentationExpectedFixed, "TestClass")];
+    }
+
+    // Test data class for conditional operator tests (no identifier needed)
+    public sealed class ConditionalOperatorTestCase
+        (
+        string testCode,
+        string fixedCode
+        )
+    {
+        public string TestCode { get; init; } = testCode;
+        public string FixedCode { get; init; } = fixedCode;
+    }
+
+    // Tests for conditional operator diagnostics
+    [TestMethod]
+    [DynamicData(nameof(GetConditionalOperatorTestCases), DynamicDataSourceType.Method)]
+    public async Task ConditionalOperatorDiagnostic_Tests(ConditionalOperatorTestCase testCase)
+    {
+        var expected =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithLocation(0);
+
+        await VerifyCS
+            .VerifyCodeFixAsync(testCase.TestCode, expected, testCase.FixedCode);
+    }
+
+    private static IEnumerable<object[]> GetConditionalOperatorTestCases()
+    {
+        yield return [new ConditionalOperatorTestCase(ConditionalOperatorSingleLine, ConditionalOperatorSingleLineFixed)];
+        yield return [new ConditionalOperatorTestCase(ConditionalOperatorAssignmentSingleLine, ConditionalOperatorAssignmentSingleLineFixed)];
+        yield return [new ConditionalOperatorTestCase(ConditionalOperatorPartialSplit, ConditionalOperatorPartialSplitFixed)];
+        yield return [new ConditionalOperatorTestCase(ConditionalOperatorWrongIndentation, ConditionalOperatorWrongIndentationFixed)];
     }
 
     #region Trivia Preservation Test Case Data
@@ -781,9 +1012,9 @@ public class NiklasifieraUnitTest
             indentationUnit: "    ",
             lineEnding: "\r\n"
         );
-        
+
         TestableNiklasifieraCodeFixProvider.MockConfigurationService = mockConfig;
-        
+
         try
         {
             var test = new CSharpCodeFixTest<NiklasifieraAnalyzer, TestableNiklasifieraCodeFixProvider, DefaultVerifier>
@@ -792,11 +1023,14 @@ public class NiklasifieraUnitTest
                 FixedCode = InheritanceWithCommentsOnColonPreserved.ReplaceLineEndings()
             };
 
-            test.ExpectedDiagnostics.Add(
-                InheritanceDiagnostic()
-                    .WithLocation(0)
-                    .WithArguments("SampleClient6")
-            );
+            test.ExpectedDiagnostics
+                .Add
+                (
+                    DiagnosticHelper
+                        .Inheritance()
+                        .WithLocation(0)
+                        .WithArguments("SampleClient6")
+                );
 
             await test.RunAsync();
         }
@@ -815,9 +1049,9 @@ public class NiklasifieraUnitTest
             indentationUnit: "    ",
             lineEnding: "\r\n"
         );
-        
+
         TestableNiklasifieraCodeFixProvider.MockConfigurationService = mockConfig;
-        
+
         try
         {
             var test = new CSharpCodeFixTest<NiklasifieraAnalyzer, TestableNiklasifieraCodeFixProvider, DefaultVerifier>
@@ -826,11 +1060,14 @@ public class NiklasifieraUnitTest
                 FixedCode = InheritanceWithCommentsIntelligentlyRepositioned.ReplaceLineEndings()
             };
 
-            test.ExpectedDiagnostics.Add(
-                InheritanceDiagnostic()
-                    .WithLocation(0)
-                    .WithArguments("TestClass")
-            );
+            test.ExpectedDiagnostics
+                .Add
+                (
+                    DiagnosticHelper
+                        .Inheritance()
+                        .WithLocation(0)
+                        .WithArguments("TestClass")
+                );
 
             await test.RunAsync();
         }
@@ -881,21 +1118,17 @@ public class NiklasifieraUnitTest
 /// <summary>
 /// Mock implementation of IConfigurationService for testing
 /// </summary>
-internal class MockConfigurationService : IConfigurationService
+internal class MockConfigurationService
+    (
+    TriviaHandlingBehavior triviaHandling = TriviaHandlingBehavior.Skip,
+    string indentationUnit = "    ",
+    string lineEnding = "\r\n"
+    )
+    : IConfigurationService
 {
-    private readonly TriviaHandlingBehavior _triviaHandling;
-    private readonly string _indentationUnit;
-    private readonly string _lineEnding;
-
-    public MockConfigurationService(
-        TriviaHandlingBehavior triviaHandling = TriviaHandlingBehavior.Skip,
-        string indentationUnit = "    ",
-        string lineEnding = "\r\n")
-    {
-        _triviaHandling = triviaHandling;
-        _indentationUnit = indentationUnit;
-        _lineEnding = lineEnding;
-    }
+    private readonly TriviaHandlingBehavior _triviaHandling = triviaHandling;
+    private readonly string _indentationUnit = indentationUnit;
+    private readonly string _lineEnding = lineEnding;
 
     public Task<TriviaHandlingBehavior> GetTriviaHandlingBehaviorAsync(Microsoft.CodeAnalysis.Document document)
         => Task.FromResult(_triviaHandling);
@@ -910,7 +1143,8 @@ internal class MockConfigurationService : IConfigurationService
 /// <summary>
 /// Testable version of NiklasifieraCodeFixProvider that uses a static mock configuration service
 /// </summary>
-internal class TestableNiklasifieraCodeFixProvider : NiklasifieraCodeFixProvider
+internal class TestableNiklasifieraCodeFixProvider
+    : NiklasifieraCodeFixProvider
 {
     internal static IConfigurationService MockConfigurationService { get; set; }
 
@@ -921,11 +1155,15 @@ internal class TestableNiklasifieraCodeFixProvider : NiklasifieraCodeFixProvider
 
     private static ICodeFixService[] CreateCodeFixServices()
     {
-        var configService = MockConfigurationService ?? new ConfigurationService();
+        var configService =
+            MockConfigurationService
+                ?? new MockConfigurationService();
+                
         return
         [
             new SignatureFormattingService(configService),
-            new InheritanceFormattingService(configService)
+            new InheritanceFormattingService(configService),
+            new ConditionalOperatorFormattingService(configService)
         ];
     }
 }

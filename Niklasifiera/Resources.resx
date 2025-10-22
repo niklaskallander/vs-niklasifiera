@@ -141,4 +141,16 @@
     <value>Inheritance formatting</value>
     <comment>The title of the inheritance diagnostic.</comment>
   </data>
+  <data name="ConditionalOperatorAnalyzerDescription" xml:space="preserve">
+    <value>Conditional operators (ternary if statements) should be formatted with the condition, question mark, and colon on separate lines with proper indentation.</value>
+    <comment>An optional longer localizable description of the conditional operator diagnostic.</comment>
+  </data>
+  <data name="ConditionalOperatorAnalyzerMessageFormat" xml:space="preserve">
+    <value>Conditional operator should be reformatted</value>
+    <comment>The format-able message the conditional operator diagnostic displays.</comment>
+  </data>
+  <data name="ConditionalOperatorAnalyzerTitle" xml:space="preserve">
+    <value>Conditional operator formatting</value>
+    <comment>The title of the conditional operator diagnostic.</comment>
+  </data>
 </root>

@@ -88,6 +88,33 @@ namespace Niklasifiera {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Conditional operators (ternary if statements) should be formatted with the condition, question mark, and colon on separate lines with proper indentation..
+        /// </summary>
+        internal static string ConditionalOperatorAnalyzerDescription {
+            get {
+                return ResourceManager.GetString("ConditionalOperatorAnalyzerDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Conditional operator should be reformatted.
+        /// </summary>
+        internal static string ConditionalOperatorAnalyzerMessageFormat {
+            get {
+                return ResourceManager.GetString("ConditionalOperatorAnalyzerMessageFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Conditional operator formatting.
+        /// </summary>
+        internal static string ConditionalOperatorAnalyzerTitle {
+            get {
+                return ResourceManager.GetString("ConditionalOperatorAnalyzerTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Method and constructor signatures with multiple parameters should be formatted with each parameter on its own line..
         /// </summary>
         internal static string SignatureAnalyzerDescription {

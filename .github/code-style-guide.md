@@ -10,6 +10,294 @@ This document defines the coding standards and formatting conventions used throu
 - **Vertical spacing**: Use blank lines to separate logical sections
 - **Consistency**: Follow established patterns within the file and project
 - **Self-documenting code**: Use descriptive names that reduce the need for comments
+- **Avoid code smells**: Keep functions focused, reduce duplication, and use proper abstractions
+
+## Code Health and Quality
+
+### Avoiding Code Smells
+
+The project maintains high code health by following these principles:
+
+#### 1. Avoid Code Duplication
+
+**Problem**: Duplicated code makes maintenance harder since changes must be made in multiple places.
+
+**Solution**: Extract common logic into shared methods or helper classes.
+
+**❌ Bad - Duplicated logic:**
+
+```csharp
+private bool ValidateAssignment(...)
+{
+    var line1 = sourceText.GetLineNumberFor(token1);
+    var line2 = sourceText.GetLineNumberFor(token2);
+    var indent = sourceText.GetLineIndentationFor(line1);
+    // validation logic
+}
+
+private bool ValidateReturn(...)
+{
+    var line1 = sourceText.GetLineNumberFor(token1);
+    var line2 = sourceText.GetLineNumberFor(token2);
+    var indent = sourceText.GetLineIndentationFor(line1);
+    // similar validation logic
+}
+```
+
+**✅ Good - Shared context object:**
+
+```csharp
+private sealed class ValidationContext
+{
+    public int Line1 { get; }
+    public int Line2 { get; }
+    public string Indentation { get; }
+    
+    public ValidationContext
+        (
+        SourceText sourceText,
+        SyntaxToken token1,
+        SyntaxToken token2
+        )
+    {
+        Line1 =
+            sourceText
+                .GetLineNumberFor(token1);
+
+        Line2 =
+            sourceText
+                .GetLineNumberFor(token2);
+
+        Indentation =
+            sourceText
+                .GetLineIndentationFor(Line1);
+    }
+    
+    public bool Validate() { /* shared logic */ }
+}
+
+private bool ValidateAssignment(...)
+{
+    var context =
+        new ValidationContext(sourceText, token1, token2);
+
+    return context
+        .Validate();
+}
+```
+
+#### 2. Limit Function Arguments (Max 4)
+
+**Problem**: Functions with many parameters are hard to understand and maintain.
+
+**Solution**: Group related parameters into context objects.
+
+**❌ Bad - Too many parameters:**
+
+```csharp
+private bool ValidateFormatting
+    (
+    SourceText sourceText,
+    int line1,
+    int line2,
+    int line3,
+    string indent1,
+    string indent2,
+    bool preserveTrivia
+    )
+{
+    // Implementation
+}
+```
+
+**✅ Good - Context object:**
+
+```csharp
+private sealed class FormattingContext
+{
+    public SourceText SourceText { get; }
+
+    public int Line1 { get; }
+    public int Line2 { get; }
+    public int Line3 { get; }
+
+    public string Indent1 { get; }
+    public string Indent2 { get; }
+    
+    public bool PreserveTrivia { get; }
+    
+    public FormattingContext(/* parameters */) { /* initialization */ }
+}
+
+private bool ValidateFormatting(FormattingContext context)
+{
+    // Implementation
+}
+```
+
+#### 3. Avoid Primitive Obsession
+
+**Problem**: Using primitive types (int, string, bool) everywhere lacks semantic meaning and type safety.
+
+**Solution**: Create domain-specific types that encapsulate validation and semantics.
+
+**❌ Bad - Primitive obsession:**
+
+```csharp
+private bool ValidateIndentation
+    (
+    SourceText sourceText,
+    int line,
+    string expectedIndent
+    )
+{
+    var actualIndent =
+        sourceText
+            .GetLineIndentationFor(line);
+
+    return actualIndent == expectedIndent;
+}
+```
+
+**✅ Good - Domain objects:**
+
+```csharp
+private sealed class LineIndentation
+{
+    public int LineNumber { get; }
+    public string Indentation { get; }
+    
+    public LineIndentation
+        (
+        SourceText sourceText,
+        int lineNumber
+        )
+    {
+        LineNumber = lineNumber;
+
+        Indentation =
+            sourceText
+                .GetLineIndentationFor(lineNumber);
+    }
+    
+    public bool Matches(string expected)
+        => Indentation == expected;
+}
+
+private bool ValidateIndentation
+    (
+    LineIndentation actual,
+    string expected
+    )
+    => actual
+        .Matches(expected);
+```
+
+#### 4. Single Responsibility Principle
+
+**Problem**: Functions that do too many things are hard to test and maintain.
+
+**Solution**: Break down complex functions into smaller, focused methods.
+
+**❌ Bad - Too many responsibilities:**
+
+```csharp
+private bool ValidateAndFormat(...)
+{
+    // Extract line numbers
+    var line1 =
+        GetLine1();
+
+    var line2 =
+        GetLine2();
+    
+    // Validate split
+    if (line1 <= line2)
+    {
+        return false;
+    }
+    
+    // Calculate indentation
+    var indent =
+        CalculateIndent();
+    
+    // Validate indentation
+    if (!ValidateIndent(indent))
+    {
+        return false;
+    }
+    
+    // Format the code
+    return Format();
+}
+```
+
+**✅ Good - Separate concerns:**
+
+```csharp
+private bool ShouldReportDiagnostic(...)
+{
+    if (!IsProperlySplit())
+    {
+        return false;
+    }
+    
+    if (!HasCorrectIndentation())
+    {
+        return false;
+    }
+
+    return true;
+}
+
+private bool IsProperlySplit() { /* focused logic */ }
+
+private bool HasCorrectIndentation() { /* focused logic */ }
+```
+
+#### 5. Encapsulation
+
+**Problem**: Exposing internal state or implementation details.
+
+**Solution**: Use private fields and provide public methods for operations.
+
+**✅ Good - Encapsulated context:**
+
+```csharp
+private sealed class ConditionalFormattingContext
+{
+    public SourceText SourceText { get; }
+
+    public int ConditionLine { get; }
+    public int QuestionLine { get; }
+    public int ColonLine { get; }
+    
+    private readonly string _indentationUnit;
+    
+    public ConditionalFormattingContext(...) { /* initialization */ }
+    
+    // Encapsulated validation logic
+    public bool IsProperlySplit(int referenceLine)
+        => ConditionLine > referenceLine
+        && QuestionLine > ConditionLine
+        && ColonLine > QuestionLine;
+    
+    public bool ValidateIndentation(string baseIndentation)
+    {
+        // Implementation uses private _indentationUnit
+    }
+}
+```
+
+### Code Health Metrics
+
+The project aims for:
+- **Code Health Score**: ≥ 9.5/10.0
+- **Function Arguments**: ≤ 4 parameters
+- **Code Duplication**: < 5%
+- **Primitive Obsession**: < 30% of functions
+
+Use these guidelines when adding new analyzers or code fixes to maintain high code quality.
 
 ## File Structure
 
@@ -365,6 +653,65 @@ context.RegisterSyntaxNodeAction(context =>
 }, SyntaxKind.MethodDeclaration);
 ```
 
+### Conditional (Ternary) Operators
+
+Always format conditional operators across multiple lines for readability.
+
+#### Assignment Context
+
+Condition goes on a new line after the equals sign:
+
+```csharp
+// ❌ Bad - single line
+var result = condition ? "Yes" : "No";
+
+// ✅ Good - multi-line assignment
+var result =
+    condition
+        ? "Yes"
+        : "No";
+
+// ✅ Good - complex conditions
+var message =
+    isValid && hasPermission
+        ? GetSuccessMessage()
+        : GetErrorMessage();
+```
+
+**Rules:**
+- Assignment operator on declaration line
+- Condition on new line, indented 4 spaces
+- `?` operator on new line, indented 8 spaces
+- True expression after `?`, with single space
+- `:` operator on new line, indented 8 spaces
+- False expression after `:`, with single space
+
+#### Return/Other Context
+
+Condition stays on the same line as the statement:
+
+```csharp
+// ❌ Bad - single line
+return age >= 18 ? "Adult" : "Minor";
+
+// ✅ Good - multi-line return
+return age >= 18
+    ? "Adult"
+    : "Minor";
+
+// ✅ Good - complex return
+return count > 0 && isEnabled
+    ? ProcessItems(count)
+    : GetDefaultValue();
+```
+
+**Rules:**
+- Condition on same line as `return` (or other statement)
+- `?` operator on new line, indented 4 spaces
+- True expression after `?`, with single space
+- `:` operator on new line, indented 4 spaces
+- False expression after `:`, with single space
+
 ### Async/Await
 
 Always use `ConfigureAwait(false)` for library code:
@@ -625,5 +972,7 @@ When writing code, ensure:
 See these files for reference implementations:
 - `Niklasifiera/Services/SignatureAnalyzerService.cs`
 - `Niklasifiera/Services/InheritanceAnalyzerService.cs`
+- `Niklasifiera/Services/ConditionalOperatorAnalyzerService.cs`
 - `Niklasifiera.CodeFixes/Services/SignatureFormattingService.cs`
 - `Niklasifiera.CodeFixes/Services/InheritanceFormattingService.cs`
+- `Niklasifiera.CodeFixes/Services/ConditionalOperatorFormattingService.cs`

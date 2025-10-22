@@ -14,7 +14,8 @@ public class NiklasifieraAnalyzer
     private readonly IAnalyzerService[] _services =
     [
         new SignatureAnalyzerService(),
-        new InheritanceAnalyzerService()
+        new InheritanceAnalyzerService(),
+        new ConditionalOperatorAnalyzerService()
     ];
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics

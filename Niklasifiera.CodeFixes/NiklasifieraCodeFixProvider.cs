@@ -22,7 +22,8 @@ public class NiklasifieraCodeFixProvider
         _codeFixServices =
         [
             new SignatureFormattingService(configurationService),
-            new InheritanceFormattingService(configurationService)
+            new InheritanceFormattingService(configurationService),
+            new ConditionalOperatorFormattingService(configurationService)
         ];
     }
 

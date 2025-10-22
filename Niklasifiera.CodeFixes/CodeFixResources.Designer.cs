@@ -90,5 +90,16 @@ namespace Niklasifiera
                 return ResourceManager.GetString("InheritanceCodeFixTitle", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Format conditional operator.
+        /// </summary>
+        internal static string ConditionalOperatorCodeFixTitle
+        {
+            get
+            {
+                return ResourceManager.GetString("ConditionalOperatorCodeFixTitle", resourceCulture);
+            }
+        }
     }
 }
