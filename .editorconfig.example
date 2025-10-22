@@ -1,0 +1,24 @@
+# EditorConfig is awesome: https://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+# All files
+[*]
+insert_final_newline = true
+
+# C# files
+[*.cs]
+# Standard formatting settings
+indent_style = space
+indent_size = 4
+end_of_line = lf
+
+# Niklasifiera trivia preservation setting
+# Options:
+#   skip     - Skip code fixes when non-whitespace trivia is present (default/safe)
+#   preserve - Apply code fixes and preserve non-whitespace trivia
+niklasifiera_preserve_trivia = skip
+
+# Example: To enable trivia preservation instead of skipping:
+# niklasifiera_preserve_trivia = preserve

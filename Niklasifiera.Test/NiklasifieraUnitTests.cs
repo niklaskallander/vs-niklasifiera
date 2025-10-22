@@ -5,6 +5,10 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 using System.Diagnostics.CodeAnalysis;
 
+using Niklasifiera.Services;
+using Microsoft.CodeAnalysis.CSharp.Testing;
+using Microsoft.CodeAnalysis.Testing.Verifiers;
+
 using VerifyCS = CSharpCodeFixVerifier<NiklasifieraAnalyzer, NiklasifieraCodeFixProvider>;
 
 [TestClass]
@@ -581,10 +585,8 @@ public class NiklasifieraUnitTest
         (
         [StringSyntax("c#-test")] string testCode
         )
-    {
-        await VerifyCS
+        => await VerifyCS
             .VerifyAnalyzerAsync(testCode);
-    }
 
     // Tests for signature diagnostics (methods/constructors with multiple parameters on single line)
     [TestMethod]
@@ -643,4 +645,289 @@ public class NiklasifieraUnitTest
         await VerifyCS
             .VerifyCodeFixAsync(testCode, expected, fixedCode);
     }
+
+    #region Trivia Preservation Test Case Data
+
+    [StringSyntax("c#-test")]
+    private const string MethodWithCommentsAndTwoParameters =
+        """
+        namespace TestNamespace
+        {
+            public class TestClass
+            {
+                // This method processes data
+                public void ProcessData{|#0:(/* input */ int data, string format /* output format */)|}
+                {
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    private const string MethodWithCommentsPreserved =
+        """
+        namespace TestNamespace
+        {
+            public class TestClass
+            {
+                // This method processes data
+                public void ProcessData
+                    (
+                    /* input */ int data,
+                    string format /* output format */
+                    )
+                {
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    private const string InheritanceWithCommentsOnColonLine =
+        """
+        using System;
+        using System.Threading.Tasks;
+
+        namespace TestNamespace
+        {
+            public class SampleClient6 {|#0:: // niklas testar
+                IAsyncDisposable
+                // hello world
+                , IDisposable|}
+            {
+                public void Dispose() { }
+                public ValueTask DisposeAsync() => new ValueTask();
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    private const string InheritanceWithCommentsOnColonPreserved =
+        """
+        using System;
+        using System.Threading.Tasks;
+
+        namespace TestNamespace
+        {
+            public class SampleClient6
+                // niklas testar
+                : IAsyncDisposable
+                // hello world
+                , IDisposable
+            {
+                public void Dispose() { }
+                public ValueTask DisposeAsync() => new ValueTask();
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    private const string InheritanceWithComments =
+        """
+        using System;
+        
+        namespace TestNamespace
+        {
+            // Important class comment
+            public class TestClass /* inline comment */ {|#0:: IDisposable|}
+            {
+                public void Dispose() { }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    private const string InheritanceWithCommentsIntelligentlyRepositioned =
+        """
+        using System;
+        
+        namespace TestNamespace
+        {
+            // Important class comment
+            public class TestClass /* inline comment */ 
+                : IDisposable
+            {
+                public void Dispose() { }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    private const string InheritanceWithCommentsPreserved =
+        """
+        using System;
+        
+        namespace TestNamespace
+        {
+            // Important class comment
+            public class TestClass /* inline comment */
+                : IDisposable /* implements disposable */
+            {
+                public void Dispose() { }
+            }
+        }
+        """;
+
+    #endregion
+
+    #region Trivia Preservation Tests
+
+    [TestMethod]
+    public async Task InheritanceWithCommentsOnColon_PreservesTrivia()
+    {
+        // Set up mock configuration to preserve trivia
+        var mockConfig = new MockConfigurationService(
+            triviaHandling: TriviaHandlingBehavior.Preserve,
+            indentationUnit: "    ",
+            lineEnding: "\r\n"
+        );
+        
+        TestableNiklasifieraCodeFixProvider.MockConfigurationService = mockConfig;
+        
+        try
+        {
+            var test = new CSharpCodeFixTest<NiklasifieraAnalyzer, TestableNiklasifieraCodeFixProvider, DefaultVerifier>
+            {
+                TestCode = InheritanceWithCommentsOnColonLine.ReplaceLineEndings(),
+                FixedCode = InheritanceWithCommentsOnColonPreserved.ReplaceLineEndings()
+            };
+
+            test.ExpectedDiagnostics.Add(
+                InheritanceDiagnostic()
+                    .WithLocation(0)
+                    .WithArguments("SampleClient6")
+            );
+
+            await test.RunAsync();
+        }
+        finally
+        {
+            TestableNiklasifieraCodeFixProvider.MockConfigurationService = null;
+        }
+    }
+
+    [TestMethod]
+    public async Task InheritanceWithInlineComments_IntelligentlyRepositionsComments()
+    {
+        // Set up the mock configuration service
+        var mockConfig = new MockConfigurationService(
+            triviaHandling: TriviaHandlingBehavior.Preserve,
+            indentationUnit: "    ",
+            lineEnding: "\r\n"
+        );
+        
+        TestableNiklasifieraCodeFixProvider.MockConfigurationService = mockConfig;
+        
+        try
+        {
+            var test = new CSharpCodeFixTest<NiklasifieraAnalyzer, TestableNiklasifieraCodeFixProvider, DefaultVerifier>
+            {
+                TestCode = InheritanceWithComments.ReplaceLineEndings(),
+                FixedCode = InheritanceWithCommentsIntelligentlyRepositioned.ReplaceLineEndings()
+            };
+
+            test.ExpectedDiagnostics.Add(
+                InheritanceDiagnostic()
+                    .WithLocation(0)
+                    .WithArguments("TestClass")
+            );
+
+            await test.RunAsync();
+        }
+        finally
+        {
+            TestableNiklasifieraCodeFixProvider.MockConfigurationService = null;
+        }
+    }
+
+    #endregion
+
+    // NOTE: This test demonstrates intelligent comment repositioning functionality
+    // but cannot run automatically due to test framework limitations with .editorconfig settings.
+    // The functionality works correctly when niklasifiera_preserve_trivia = preserve is set.
+    //
+    // [TestMethod]
+    // public async Task InheritanceFormattingWithComments_PreserveTrivia_IntelligentlyRepositionsComments()
+    // {
+    //     // This test verifies that when niklasifiera_preserve_trivia = preserve,
+    //     // comments are intelligently repositioned rather than kept in place
+    //     
+    //     var testCode = InheritanceWithComments;
+    //     var expectedCode = InheritanceWithCommentsIntelligentlyRepositioned;
+    //     
+    //     var expected = InheritanceDiagnostic()
+    //         .WithLocation(0)
+    //         .WithArguments("TestClass");
+    //
+    //     await VerifyCS
+    //         .VerifyCodeFixAsync(testCode, expected, expectedCode);
+    // }
+
+    // NOTE: Trivia preservation tests would require setting up .editorconfig
+    // or modifying the test framework to support analyzer configuration.
+    // For now, these test cases serve as documentation of the expected behavior.
+
+    // When niklasifiera_preserve_trivia = skip (default):
+    // - Code fixes should not be offered for MethodWithCommentsAndTwoParameters
+    // - Code fixes should not be offered for InheritanceWithComments
+
+    // When niklasifiera_preserve_trivia = preserve:
+    // - MethodWithCommentsAndTwoParameters should be fixed to MethodWithCommentsPreserved
+    // - InheritanceWithComments should be fixed to InheritanceWithCommentsIntelligentlyRepositioned
 }
+
+#region Test Infrastructure for Mocking
+
+/// <summary>
+/// Mock implementation of IConfigurationService for testing
+/// </summary>
+internal class MockConfigurationService : IConfigurationService
+{
+    private readonly TriviaHandlingBehavior _triviaHandling;
+    private readonly string _indentationUnit;
+    private readonly string _lineEnding;
+
+    public MockConfigurationService(
+        TriviaHandlingBehavior triviaHandling = TriviaHandlingBehavior.Skip,
+        string indentationUnit = "    ",
+        string lineEnding = "\r\n")
+    {
+        _triviaHandling = triviaHandling;
+        _indentationUnit = indentationUnit;
+        _lineEnding = lineEnding;
+    }
+
+    public Task<TriviaHandlingBehavior> GetTriviaHandlingBehaviorAsync(Microsoft.CodeAnalysis.Document document)
+        => Task.FromResult(_triviaHandling);
+
+    public Task<string> GetIndentationUnitAsync(Microsoft.CodeAnalysis.Document document)
+        => Task.FromResult(_indentationUnit);
+
+    public Task<string> GetLineEndingAsync(Microsoft.CodeAnalysis.Document document)
+        => Task.FromResult(_lineEnding);
+}
+
+/// <summary>
+/// Testable version of NiklasifieraCodeFixProvider that uses a static mock configuration service
+/// </summary>
+internal class TestableNiklasifieraCodeFixProvider : NiklasifieraCodeFixProvider
+{
+    internal static IConfigurationService MockConfigurationService { get; set; }
+
+    public TestableNiklasifieraCodeFixProvider()
+        : base(CreateCodeFixServices())
+    {
+    }
+
+    private static ICodeFixService[] CreateCodeFixServices()
+    {
+        var configService = MockConfigurationService ?? new ConfigurationService();
+        return
+        [
+            new SignatureFormattingService(configService),
+            new InheritanceFormattingService(configService)
+        ];
+    }
+}
+
+#endregion

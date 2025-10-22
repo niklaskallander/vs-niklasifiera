@@ -1,10 +1,8 @@
 # Remove the line below if you want to inherit .editorconfig settings from higher directories
 root = true
 
-# C# files
-[*.cs]
-
-#### Core EditorConfig Options ####
+# all files
+[*.*]
 
 # Indentation and spacing
 indent_size = 4
@@ -14,6 +12,11 @@ tab_width = 4
 # New line preferences
 end_of_line = lf
 insert_final_newline = true
+
+# C# files
+[*.cs]
+
+#### Core EditorConfig Options ####
 
 #### .NET Coding Conventions ####
 
@@ -281,3 +284,6 @@ dotnet_diagnostic.CS0219.severity = error
 
 # IDE0130: Namespace should match folder structure
 dotnet_diagnostic.IDE0130.severity = error
+
+# Niklasifiera trivia preservation setting
+niklasifiera_preserve_trivia = preserve

@@ -9,7 +9,7 @@
 
   <PropertyGroup>
     <PackageId>Niklasifiera</PackageId>
-    <PackageVersion>1.0.4.0</PackageVersion>
+    <PackageVersion>1.0.5.0</PackageVersion>
     <Authors>Niklas Källander</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/niklaskallander/vs-niklasifiera</PackageProjectUrl>

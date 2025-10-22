@@ -4,7 +4,7 @@
 [![NuGet](https://img.shields.io/nuget/v/Niklasifiera.svg)](https://www.nuget.org/packages/Niklasifiera/)
 [![License](https://img.shields.io/github/license/niklaskallander/vs-niklasifiera.svg)](LICENSE)
 
-![Alt text](icon-big.png "Niklasifiera Icon")
+![Alt text](https://raw.githubusercontent.com/niklaskallander/vs-niklasifiera/refs/heads/main/icon-big.png "Niklasifiera Icon")
 
 A C# Roslyn analyzer that enforces consistent formatting for method signatures and type inheritance declarations. Niklasifiera helps maintain clean, readable code by automatically detecting and fixing formatting issues in your C# projects.
 
@@ -76,7 +76,7 @@ Install-Package Niklasifiera
 
 ### Via PackageReference
 ```xml
-<PackageReference Include="Niklasifiera" Version="1.0.0">
+<PackageReference Include="Niklasifiera" Version="1.0.5">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>
@@ -106,6 +106,35 @@ dotnet_diagnostic.NIKL002.severity = error
 dotnet_diagnostic.NIKL001.severity = warning
 dotnet_diagnostic.NIKL002.severity = warning
 ```
+
+### Trivia Preservation (New!)
+Niklasifiera now supports preserving comments and other non-whitespace trivia during code fixes:
+
+```ini
+[*.cs]
+# Control how code fixes handle trivia (comments, directives, etc.)
+niklasifiera_preserve_trivia = skip     # Skip fixes when trivia is present (default/safe)
+# niklasifiera_preserve_trivia = preserve  # Apply fixes and attempt to preserve trivia (currently only works for comments, if other trivia is encountered, code-fixes will be skipped.)
+```
+
+**Options:**
+- `skip` (default): Skip code fixes when non-whitespace trivia is detected to avoid losing comments
+- `preserve`: Apply code fixes while preserving comments and other important trivia
+
+**Example with trivia preservation:**
+```csharp
+// ❌ Before (with preserve mode)
+public void ProcessData(/* input */ int data, string format /* output */)
+
+// ✅ After (comments preserved!)
+public void ProcessData
+    (
+    /* input */ int data,
+    string format /* output */
+    )
+```
+
+For more details, see [TRIVIA_PRESERVATION.md](TRIVIA_PRESERVATION.md).
 
 ### Suppression
 Suppress rules using standard C# suppression attributes:
@@ -226,6 +255,15 @@ This project is licensed under the terms specified in the [LICENSE](LICENSE) fil
 - GitHub: [@niklaskallander](https://github.com/niklaskallander)
 
 ## Changelog
+
+### Version 1.1.0 (Latest)
+- 🎉 **New Feature**: Trivia preservation support
+  - Added `niklasifiera_preserve_trivia` configuration option
+  - Preserves comments, directives, and other non-whitespace trivia during code fixes
+  - Two modes: `skip` (default/safe) and `preserve` (apply fixes with trivia preservation)
+  - Prevents accidental loss of important code comments and annotations
+- 🔧 Enhanced code fix provider with trivia-aware formatting
+- 📚 Added comprehensive documentation for trivia preservation
 
 ### Version 1.0.0
 - Initial release

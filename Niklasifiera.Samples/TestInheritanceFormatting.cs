@@ -11,8 +11,29 @@ public class TestClass : IDisposable, IComparable<int>
 }
 
 // This case from IMPLEMENTATION_SUMMARY.md should also trigger analyzer
-public class SampleClient6 :
+public class SampleClient6 : // niklas testar
     IAsyncDisposable
+    // hello world
+    , IDisposable
+{
+    public void Dispose() { }
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}
+
+// EXPECTED output from code-fix (when preserving trivia):
+public class SampleClient6Expected
+    // niklas testar
+    : IAsyncDisposable
+    // hello world
+    , IDisposable
+{
+    public void Dispose() { }
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}
+
+// ACTUAL output from code-fix (when preserving trivia):
+public class SampleClient6Actual
+    : IAsyncDisposable
     , IDisposable
 {
     public void Dispose() { }
@@ -21,7 +42,7 @@ public class SampleClient6 :
 
 // Wrong spacing after colon (no space)
 public class WrongSpacing1
-    :IAsyncDisposable
+    : IAsyncDisposable
     , IDisposable
 {
     public void Dispose() { }
@@ -30,7 +51,7 @@ public class WrongSpacing1
 
 // Wrong spacing after colon (multiple spaces)
 public class WrongSpacing2
-    :  IAsyncDisposable
+    : IAsyncDisposable
     , IDisposable
 {
     public void Dispose() { }
@@ -40,7 +61,7 @@ public class WrongSpacing2
 // Wrong spacing after comma (no space)
 public class WrongSpacing3
     : IAsyncDisposable
-    ,IDisposable
+    , IDisposable
 {
     public void Dispose() { }
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
@@ -49,7 +70,7 @@ public class WrongSpacing3
 // Wrong spacing after comma (multiple spaces)
 public class WrongSpacing4
     : IAsyncDisposable
-    ,  IDisposable
+    , IDisposable
 {
     public void Dispose() { }
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;

@@ -8,6 +8,8 @@
 		<!-- Avoid ID conflicts with the package project. -->
 		<PackageId>*$(MSBuildProjectFile)*</PackageId>
 		<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+        <ImplicitUsings>true</ImplicitUsings>
+        <Nullable>enable</Nullable>
 	</PropertyGroup>
 
 	<ItemGroup>

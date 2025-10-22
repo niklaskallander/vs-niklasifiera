@@ -1,13 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <Analyzer Include="..\Niklasifiera\bin\Release\netstandard2.0\Niklasifiera.dll" />
-  </ItemGroup>
+    <ItemGroup>
+        <Analyzer Include="..\Niklasifiera\bin\Release\netstandard2.0\Niklasifiera.dll" />
+        <Analyzer Include="..\Niklasifiera.CodeFixes\bin\Release\netstandard2.0\Niklasifiera.CodeFixes.dll" />
+    </ItemGroup>
 
 </Project>
