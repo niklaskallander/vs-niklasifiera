@@ -168,51 +168,269 @@ public class ConditionalOperatorFormattingService(IConfigurationService configur
                 shouldPreserveTrivia
             );
 
-        // Determine if this is part of an assignment
-        var isAssignment =
+        // Format nested conditionals recursively (innermost first)
+        return FormatConditionalRecursively(conditionalExpression, parameters);
+    }
+
+    private ConditionalExpressionSyntax FormatConditionalRecursively
+        (
+        ConditionalExpressionSyntax conditionalExpression,
+        FormattingParameters parameters
+        )
+    {
+        // Determine the assignment context ONCE at the top level
+        var isTopLevelAssignment =
             IsPartOfAssignment(conditionalExpression);
 
-        return FormatConditional(conditionalExpression, parameters, isAssignment);
+        return FormatConditionalRecursivelyInternal(conditionalExpression, parameters, isTopLevelAssignment);
     }
 
-    private bool IsPartOfAssignment(ConditionalExpressionSyntax conditionalExpression)
-    {
-        var parent =
-            conditionalExpression.Parent;
-
-        if (parent is EqualsValueClauseSyntax equalsValue)
-        {
-            return equalsValue.Parent is VariableDeclaratorSyntax
-                || equalsValue.Parent?.Parent is AssignmentExpressionSyntax;
-        }
-
-        if (parent is AssignmentExpressionSyntax)
-        {
-            return true;
-        }
-
-        return false;
-    }
-
-    private ConditionalExpressionSyntax FormatConditional
+    private ConditionalExpressionSyntax FormatConditionalRecursivelyInternal
         (
         ConditionalExpressionSyntax conditionalExpression,
         FormattingParameters parameters,
-        bool isAssignment
+        bool isInAssignmentContext
         )
     {
+        // Calculate indentation for this level
+        var (ConditionIndent, OperatorIndent) =
+            CalculateIndentation
+            (
+                conditionalExpression,
+                parameters,
+                isInAssignmentContext
+            );
+
+        // Recursively format nested conditionals
+        var formattedNested =
+            FormatNestedConditionals
+            (
+                conditionalExpression,
+                parameters,
+                OperatorIndent
+            );
+
+        // Format this level
+        var context =
+            new FormattingContext
+            (
+                ConditionIndent,
+                OperatorIndent,
+                parameters.LineEndingTrivia,
+                parameters.PreserveTrivia,
+                isInAssignmentContext
+            );
+
+        return FormatConditionalExpression(formattedNested, context);
+    }
+
+    private (string ConditionIndent, string OperatorIndent) CalculateIndentation
+        (
+        ConditionalExpressionSyntax conditionalExpression,
+        FormattingParameters parameters,
+        bool isInAssignmentContext
+        )
+    {
+        if (isInAssignmentContext)
+        {
+            return CalculateAssignmentIndentation(conditionalExpression, parameters);
+        }
+
+        return CalculateStatementIndentation(conditionalExpression, parameters);
+    }
+
+    private (string ConditionIndent, string OperatorIndent) CalculateAssignmentIndentation
+        (
+        ConditionalExpressionSyntax conditionalExpression,
+        FormattingParameters parameters
+        )
+    {
+        var baseIndent =
+            GetBaseIndentationForAssignment(conditionalExpression, parameters.SourceText);
+
+        var conditionIndent =
+            baseIndent + parameters.IndentationUnit;
+
+        var operatorIndent =
+            CalculateOperatorIndent
+            (
+                conditionalExpression.Condition,
+                parameters,
+                conditionIndent
+            );
+
+        return (conditionIndent, operatorIndent);
+    }
+
+    private (string ConditionIndent, string OperatorIndent) CalculateStatementIndentation
+        (
+        ConditionalExpressionSyntax conditionalExpression,
+        FormattingParameters parameters
+        )
+    {
+        var baseIndent =
+            GetBaseIndentationForStatement(conditionalExpression, parameters.SourceText);
+
+        var conditionEndLine =
+            parameters.SourceText
+                .GetLineNumberFor(conditionalExpression.Condition.GetLastToken());
+
+        var conditionEndIndentation =
+            parameters.SourceText
+                .GetLineIndentationFor(conditionEndLine);
+
+        var operatorIndent =
+            conditionEndIndentation + parameters.IndentationUnit;
+
+        return (baseIndent, operatorIndent);
+    }
+
+    private string CalculateOperatorIndent
+        (
+        ExpressionSyntax condition,
+        FormattingParameters parameters,
+        string conditionIndent
+        )
+    {
+        var conditionStartLine =
+            parameters.SourceText
+                .GetLineNumberFor(condition.GetFirstToken());
+
+        var conditionEndLine =
+            parameters.SourceText
+                .GetLineNumberFor(condition.GetLastToken());
+
+        if (conditionStartLine == conditionEndLine)
+        {
+            // Single-line condition: operators at conditionIndent + 4
+            return conditionIndent + parameters.IndentationUnit;
+        }
+
+        // Multi-line condition: operators at conditionEndIndent + 4
+        var conditionEndIndentation =
+            parameters.SourceText
+                .GetLineIndentationFor(conditionEndLine);
+
+        return conditionEndIndentation + parameters.IndentationUnit;
+    }
+
+    private ConditionalExpressionSyntax FormatNestedConditionals
+        (
+        ConditionalExpressionSyntax conditionalExpression,
+        FormattingParameters parameters,
+        string operatorIndent
+        )
+    {
+        var formattedWhenTrue =
+            conditionalExpression.WhenTrue is ConditionalExpressionSyntax nestedTrue
+                ? FormatNestedConditionalWithIndent(nestedTrue, parameters, operatorIndent)
+                : conditionalExpression.WhenTrue;
+
+        var formattedWhenFalse =
+            conditionalExpression.WhenFalse is ConditionalExpressionSyntax nestedFalse
+                ? FormatNestedConditionalWithIndent(nestedFalse, parameters, operatorIndent)
+                : conditionalExpression.WhenFalse;
+
+        return conditionalExpression
+            .WithWhenTrue(formattedWhenTrue)
+            .WithWhenFalse(formattedWhenFalse);
+    }
+
+    private ConditionalExpressionSyntax FormatNestedConditionalWithIndent
+        (
+        ConditionalExpressionSyntax nestedConditional,
+        FormattingParameters parameters,
+        string parentOperatorIndent
+        )
+    {
+        // Nested conditionals: the condition starts at the parent's operator indentation level
+        var conditionIndent =
+            parentOperatorIndent;
+
+        // Calculate operator indentation
+        // Check if the nested condition is already on its own line or needs to be moved
+        var conditionStartLine =
+            parameters.SourceText
+                .GetLineNumberFor(nestedConditional.Condition.GetFirstToken());
+
+        var conditionEndLine =
+            parameters.SourceText
+                .GetLineNumberFor(nestedConditional.Condition.GetLastToken());
+
+        string operatorIndent;
+
+        if (conditionStartLine == conditionEndLine)
+        {
+            // Single-line condition (either originally or after formatting)
+            // Operators should be indented one level from where the condition starts
+            operatorIndent =
+                conditionIndent + parameters.IndentationUnit;
+        }
+        else
+        {
+            // Multi-line condition - operators indent from where condition ends
+            var conditionEndIndentation =
+                parameters.SourceText
+                    .GetLineIndentationFor(conditionEndLine);
+
+            operatorIndent =
+                conditionEndIndentation + parameters.IndentationUnit;
+        }
+
+        // Recursively format deeper nesting - pass the operator indent so child conditionals
+        // know where to start their condition
+        var formattedWhenTrue =
+            nestedConditional.WhenTrue is ConditionalExpressionSyntax deeperNested
+                ? FormatNestedConditionalWithIndent(deeperNested, parameters, operatorIndent)
+                : nestedConditional.WhenTrue;
+
+        var formattedWhenFalse =
+            nestedConditional.WhenFalse is ConditionalExpressionSyntax deeperNestedFalse
+                ? FormatNestedConditionalWithIndent(deeperNestedFalse, parameters, operatorIndent)
+                : nestedConditional.WhenFalse;
+
+        var updatedNested =
+            nestedConditional
+                .WithWhenTrue(formattedWhenTrue)
+                .WithWhenFalse(formattedWhenFalse);
+
+        // Format this nested level
+        var context =
+            new FormattingContext
+            (
+                conditionIndent,
+                operatorIndent,
+                parameters.LineEndingTrivia,
+                parameters.PreserveTrivia,
+                false // Nested conditionals don't add newline before condition
+            );
+
+        return FormatConditionalExpression(updatedNested, context);
+    }
+
+    private ConditionalExpressionSyntax FormatConditionalWithContext
+        (
+        ConditionalExpressionSyntax conditionalExpression,
+        FormattingParameters parameters,
+        bool isInAssignmentContext
+        )
+    {
+        // Use the passed context instead of detecting it
+        var isAssignment = isInAssignmentContext;
+
         string baseIndentation;
         string conditionIndentation;
         string operatorIndentation;
 
         if (isAssignment)
         {
-            // Format: variable =
+            // GOOD format for assignments:
+            // variable =
             //     condition
-            //         ? trueExpression
-            //         : falseExpression;
+            //         ? "Yes"
+            //         : "No";
             baseIndentation =
-                GetAssignmentIndentation(conditionalExpression, parameters.SourceText);
+                GetBaseIndentationForAssignment(conditionalExpression, parameters.SourceText);
 
             conditionIndentation =
                 baseIndentation + parameters.IndentationUnit;
@@ -222,17 +440,34 @@ public class ConditionalOperatorFormattingService(IConfigurationService configur
         }
         else
         {
-            // Format: return condition
-            //     ? trueExpression
-            //     : falseExpression;
+            // GOOD format for returns:
+            // return condition
+            //     ? "Yes"
+            //     : "No";
+            // 
+            // For multi-line conditions:
+            // return condition
+            //     .ToString() == "True"
+            //         ? "Yes"
+            //         : "No";
+            // Operators indent from condition's last line
             baseIndentation =
-                GetStatementIndentation(conditionalExpression, parameters.SourceText);
+                GetBaseIndentationForStatement(conditionalExpression, parameters.SourceText);
 
             conditionIndentation =
                 baseIndentation;
 
+            // Calculate operator indentation based on where condition actually ends
+            var conditionEndLine =
+                parameters.SourceText
+                    .GetLineNumberFor(conditionalExpression.Condition.GetLastToken());
+
+            var conditionEndIndentation =
+                parameters.SourceText
+                    .GetLineIndentationFor(conditionEndLine);
+
             operatorIndentation =
-                baseIndentation + parameters.IndentationUnit;
+                conditionEndIndentation + parameters.IndentationUnit;
         }
 
         var context =
@@ -242,10 +477,72 @@ public class ConditionalOperatorFormattingService(IConfigurationService configur
                 operatorIndentation,
                 parameters.LineEndingTrivia,
                 parameters.PreserveTrivia,
-                !isAssignment
+                isAssignment
             );
 
         return FormatConditionalExpression(conditionalExpression, context);
+    }
+
+    private string GetBaseIndentationForAssignment
+        (
+        ConditionalExpressionSyntax conditionalExpression,
+        SourceText sourceText
+        )
+    {
+        var parent =
+            conditionalExpression.Parent;
+
+        if (parent is EqualsValueClauseSyntax equalsValue)
+        {
+            if (equalsValue.Parent is VariableDeclaratorSyntax declarator)
+            {
+                var declaratorLine =
+                    sourceText
+                        .GetLineNumberFor(declarator);
+
+                return sourceText
+                    .GetLineIndentationFor(declaratorLine);
+            }
+        }
+
+        if (parent is AssignmentExpressionSyntax assignment)
+        {
+            var assignmentLine =
+                sourceText
+                    .GetLineNumberFor(assignment);
+
+            return sourceText
+                .GetLineIndentationFor(assignmentLine);
+        }
+
+        return "";
+    }
+
+    private string GetBaseIndentationForStatement
+        (
+        ConditionalExpressionSyntax conditionalExpression,
+        SourceText sourceText
+        )
+    {
+        var parent =
+            conditionalExpression.Parent;
+
+        while (parent != null)
+        {
+            if (parent is StatementSyntax statement)
+            {
+                var statementLine =
+                    sourceText
+                        .GetLineNumberFor(statement);
+
+                return sourceText
+                    .GetLineIndentationFor(statementLine);
+            }
+
+            parent = parent.Parent;
+        }
+
+        return "";
     }
 
     private ConditionalExpressionSyntax FormatConditionalExpression
@@ -285,33 +582,32 @@ public class ConditionalOperatorFormattingService(IConfigurationService configur
         FormattingContext context
         )
     {
-        var formattedCondition =
-            context.PreserveTrivia
-                ? condition
-                    .WithPreservedTrivia(condition.GetLeadingTrivia(), condition.GetTrailingTrivia())
-                : condition
-                    .WithoutTrivia();
-
-        if (context.IsFirstPartOfStatement)
+        if (context.IsAssignment)
         {
-            // For 'return condition', the space is part of the return keyword's trivia.
-            // The condition itself should have no leading trivia.
-            return formattedCondition
-                .WithLeadingTrivia(SyntaxFactory.TriviaList())
-                .WithTrailingTrivia(SyntaxFactory.TriviaList());
+            // For assignments, preserve comments but control whitespace precisely
+            var leadingTrivia =
+                SyntaxFactory.TriviaList
+                (
+                    context.LineEndingTrivia,
+                    SyntaxFactory.Whitespace(context.ConditionIndentation)
+                );
+
+            // Use WithPreservedTrivia if preserve mode, otherwise strip all trivia
+            return context.PreserveTrivia
+                ? condition
+                    .WithPreservedTrivia(leadingTrivia, SyntaxFactory.TriviaList())
+                : condition
+                    .WithLeadingTrivia(leadingTrivia)
+                    .WithTrailingTrivia(SyntaxFactory.TriviaList());
         }
 
-        // For assignments, add newline + indentation as leading trivia
-        var leadingTrivia =
-            SyntaxFactory.TriviaList
-            (
-                context.LineEndingTrivia,
-                SyntaxFactory.Whitespace(context.ConditionIndentation)
-            );
-
-        return formattedCondition
-            .WithLeadingTrivia(leadingTrivia)
-            .WithTrailingTrivia(SyntaxFactory.TriviaList());
+        // For returns/statements, preserve trivia if requested but keep condition on same line
+        return context.PreserveTrivia
+            ? condition
+                .WithPreservedTrivia(SyntaxFactory.TriviaList(), SyntaxFactory.TriviaList())
+            : condition
+                .WithLeadingTrivia(SyntaxFactory.TriviaList())
+                .WithTrailingTrivia(SyntaxFactory.TriviaList());
     }
 
     private SyntaxToken FormatOperatorToken
@@ -330,14 +626,10 @@ public class ConditionalOperatorFormattingService(IConfigurationService configur
         var trailingTrivia =
             SyntaxFactory.TriviaList(SyntaxFactory.Space);
 
+        // Preserve comments but control whitespace precisely
         return context.PreserveTrivia
             ? token.WithPreservedTrivia(leadingTrivia, trailingTrivia)
-            : SyntaxFactory.Token
-            (
-                leadingTrivia,
-                token.Kind(),
-                trailingTrivia
-            );
+            : SyntaxFactory.Token(leadingTrivia, token.Kind(), trailingTrivia);
     }
 
     private ExpressionSyntax FormatExpression
@@ -345,79 +637,32 @@ public class ConditionalOperatorFormattingService(IConfigurationService configur
         ExpressionSyntax expression,
         bool preserveTrivia
         )
-        // Expressions after operators should have no leading whitespace
-        // and no trailing whitespace
+        // Expressions after operators should have no leading/trailing whitespace
+        // But preserve comments if in preserve mode
         => preserveTrivia
             ? expression
-                .WithPreservedTrivia
-                (
-                    SyntaxFactory.TriviaList(),
-                    SyntaxFactory.TriviaList()
-                )
+                .WithPreservedTrivia(SyntaxFactory.TriviaList(), SyntaxFactory.TriviaList())
             : expression
                 .WithLeadingTrivia(SyntaxFactory.TriviaList())
                 .WithTrailingTrivia(SyntaxFactory.TriviaList());
 
-    private string GetAssignmentIndentation
-        (
-        ConditionalExpressionSyntax conditionalExpression,
-        SourceText sourceText
-        )
+    private bool IsPartOfAssignment(ConditionalExpressionSyntax conditionalExpression)
     {
         var parent =
             conditionalExpression.Parent;
 
         if (parent is EqualsValueClauseSyntax equalsValue)
         {
-            if (equalsValue.Parent is VariableDeclaratorSyntax declarator)
-            {
-                var declaratorLine =
-                    sourceText
-                        .GetLineNumberFor(declarator);
-
-                return sourceText
-                    .GetLineIndentationFor(declaratorLine);
-            }
+            return equalsValue.Parent is VariableDeclaratorSyntax
+                || equalsValue.Parent?.Parent is AssignmentExpressionSyntax;
         }
 
-        if (parent is AssignmentExpressionSyntax assignment)
+        if (parent is AssignmentExpressionSyntax)
         {
-            var assignmentLine =
-                sourceText
-                    .GetLineNumberFor(assignment);
-
-            return sourceText
-                .GetLineIndentationFor(assignmentLine);
+            return true;
         }
 
-        return "";
-    }
-
-    private string GetStatementIndentation
-        (
-        ConditionalExpressionSyntax conditionalExpression,
-        SourceText sourceText
-        )
-    {
-        var parent =
-            conditionalExpression.Parent;
-
-        while (parent != null)
-        {
-            if (parent is StatementSyntax statement)
-            {
-                var statementLine =
-                    sourceText
-                        .GetLineNumberFor(statement);
-
-                return sourceText
-                    .GetLineIndentationFor(statementLine);
-            }
-
-            parent = parent.Parent;
-        }
-
-        return "";
+        return false;
     }
 
     private async Task<Document> FormatDocumentAsync
@@ -466,6 +711,29 @@ public class ConditionalOperatorFormattingService(IConfigurationService configur
                 return document
                     .WithSyntaxRoot(newRoot);
             }
+
+            // Handle regular assignment (not variable declaration)
+            var assignment =
+                conditionalExpression.Parent as AssignmentExpressionSyntax;
+
+            if (assignment != null)
+            {
+                // Create new assignment with no trailing space on = and the formatted conditional
+                var newOperatorToken =
+                    assignment.OperatorToken
+                        .WithTrailingTrivia(SyntaxFactory.TriviaList());
+
+                var newAssignment =
+                    assignment
+                        .WithOperatorToken(newOperatorToken)
+                        .WithRight(newConditionalExpression);
+
+                var newRoot =
+                    root.ReplaceNode(assignment, newAssignment);
+
+                return document
+                    .WithSyntaxRoot(newRoot);
+            }
         }
 
         // For non-assignment cases (like return statements), just replace the conditional
@@ -502,13 +770,13 @@ public class ConditionalOperatorFormattingService(IConfigurationService configur
         string operatorIndentation,
         SyntaxTrivia lineEndingTrivia,
         bool preserveTrivia,
-        bool isFirstPartOfStatement
+        bool isAssignment
         )
     {
         public string ConditionIndentation { get; } = conditionIndentation;
         public string OperatorIndentation { get; } = operatorIndentation;
         public SyntaxTrivia LineEndingTrivia { get; } = lineEndingTrivia;
         public bool PreserveTrivia { get; } = preserveTrivia;
-        public bool IsFirstPartOfStatement { get; } = isFirstPartOfStatement;
+        public bool IsAssignment { get; } = isAssignment;
     }
 }

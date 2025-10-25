@@ -7,746 +7,14 @@ using System.Diagnostics.CodeAnalysis;
 
 using Niklasifiera.Services;
 using Microsoft.CodeAnalysis.CSharp.Testing;
-using Microsoft.CodeAnalysis.Testing.Verifiers;
 
 using VerifyCS = CSharpCodeFixVerifier<NiklasifieraAnalyzer, NiklasifieraCodeFixProvider>;
+
+using static TestData;
 
 [TestClass]
 public class NiklasifieraUnitTest
 {
-    #region Test Case Data - No Diagnostics
-
-    [StringSyntax("c#-test")]
-    private const string EmptyCode = "";
-
-    [StringSyntax("c#-test")]
-    private const string MethodWithNoParameters =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public void TestMethod()
-                {
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string MethodWithOneParameter =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public void TestMethod(int parameter)
-                {
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string MethodWithMultipleParametersCorrectlyFormatted =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public void TestMethod
-                    (
-                    int parameter1,
-                    string parameter2
-                    )
-                {
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string ConstructorWithNoParameters =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public TestClass()
-                {
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string ConstructorWithOneParameter =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public TestClass(int parameter)
-                {
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string GenericMethodWithOneParameter =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public T Process<T>(T input) where T : class
-                {
-                    return input;
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string PrimaryConstructorWithInheritanceCorrectlyFormatted =
-        """
-        using System;
-        using System.Net.Http;
-        using System.Threading.Tasks;
-        
-        namespace TestNamespace
-        {
-            public class SampleClient
-                (
-                HttpClient httpClient,
-                Action<string> log
-                )
-                : IAsyncDisposable
-                , IDisposable
-            {
-                public void Dispose() { }
-                public ValueTask DisposeAsync() => new ValueTask();
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string SingleInheritanceCorrectlyFormatted =
-        """
-        using System;
-        
-        namespace TestNamespace
-        {
-            public class TestClass
-                : IDisposable
-            {
-                public void Dispose() { }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string SingleInheritanceWithPrimaryConstructorCorrectlyFormatted =
-        """
-        using System;
-        using System.Data;
-        
-        namespace TestNamespace
-        {
-            public class TestClass
-                (
-                IDbConnection DbConnection,
-                IDbTransaction DbTransaction
-                )
-                : IDisposable
-            {
-                public void Dispose() { }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string RecordWithTwoParametersCorrectlyFormatted =
-        """
-        namespace TestNamespace
-        {
-            public record Person
-                (
-                string FirstName,
-                string LastName
-                );
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string RecordWithOneParameter =
-        """
-        namespace TestNamespace
-        {
-            public record Person(string Name);
-        }
-        """;
-
-    #endregion
-
-    #region Test Case Data - Signature Diagnostics
-
-    [StringSyntax("c#-test")]
-    private const string MethodWithTwoParametersOnSingleLine =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public void TestMethod{|#0:(int parameter1, string parameter2)|}
-                {
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string MethodWithTwoParametersOnSingleLineFixed =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public void TestMethod
-                    (
-                    int parameter1,
-                    string parameter2
-                    )
-                {
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string ConstructorWithTwoParametersOnSingleLine =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public TestClass{|#0:(int parameter1, string parameter2)|}
-                {
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string ConstructorWithTwoParametersOnSingleLineFixed =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public TestClass
-                    (
-                    int parameter1,
-                    string parameter2
-                    )
-                {
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string MethodWithThreeParametersOnSingleLine =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public void TestMethod{|#0:(int p1, string p2, bool p3)|}
-                {
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string MethodWithThreeParametersOnSingleLineFixed =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public void TestMethod
-                    (
-                    int p1,
-                    string p2,
-                    bool p3
-                    )
-                {
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string GenericMethodWithMultipleParametersOnSingleLine =
-        """
-        using System.Net.Http;
-        using System.Threading;
-        using System.Threading.Tasks;
-        
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public async Task ExecuteAsync<T>{|#0:(T request, CancellationToken cancellationToken)|}
-                    where T : HttpRequestMessage
-                {
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string GenericMethodWithMultipleParametersOnSingleLineFixed =
-        """
-        using System.Net.Http;
-        using System.Threading;
-        using System.Threading.Tasks;
-        
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public async Task ExecuteAsync<T>
-                    (
-                    T request,
-                    CancellationToken cancellationToken
-                    )
-                    where T : HttpRequestMessage
-                {
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string PrimaryConstructorWithInheritanceOnSingleLine =
-        """
-        using System;
-        using System.Net.Http;
-        using System.Threading.Tasks;
-        
-        namespace TestNamespace
-        {
-            public class SampleClient(HttpClient httpClient, Action<string> log)
-                : IAsyncDisposable
-                , IDisposable
-            {
-                public void Dispose() { }
-                public ValueTask DisposeAsync() => new ValueTask();
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string PrimaryConstructorWithInheritanceOnSingleLineFixed =
-        """
-        using System;
-        using System.Net.Http;
-        using System.Threading.Tasks;
-        
-        namespace TestNamespace
-        {
-            public class SampleClient
-                (
-                HttpClient httpClient,
-                Action<string> log
-                )
-                : IAsyncDisposable
-                , IDisposable
-            {
-                public void Dispose() { }
-                public ValueTask DisposeAsync() => new ValueTask();
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string MethodWithGenericConstraintsOnSingleLine =
-        """
-        namespace TestNamespace
-        {
-            public interface IProcessor<T> { }
-            
-            public class TestClass
-            {
-                public void ProcessData<T, U>{|#0:(T data, U processor, string format)|}
-                    where T : class, new()
-                    where U : IProcessor<T>
-                {
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string MethodWithGenericConstraintsOnSingleLineFixed =
-        """
-        namespace TestNamespace
-        {
-            public interface IProcessor<T> { }
-            
-            public class TestClass
-            {
-                public void ProcessData<T, U>
-                    (
-                    T data,
-                    U processor,
-                    string format
-                    )
-                    where T : class, new()
-                    where U : IProcessor<T>
-                {
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string RecordWithTwoParametersOnSingleLine =
-        """
-        namespace TestNamespace
-        {
-            public record Person{|#0:(string FirstName, string LastName)|};
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string RecordWithTwoParametersOnSingleLineFixed =
-        """
-        namespace TestNamespace
-        {
-            public record Person
-                (
-                string FirstName,
-                string LastName
-                );
-        }
-        """;
-
-    #endregion
-
-    #region Test Case Data - Inheritance Diagnostics
-
-    [StringSyntax("c#-test")]
-    private const string SingleInheritanceOnSameLine =
-        """
-        using System;
-
-        namespace TestNamespace
-        {
-            public class TestClass {|#0:: IDisposable|}
-            {
-                public void Dispose() { }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string SingleInheritanceOnSameLineFixed =
-        """
-        using System;
-
-        namespace TestNamespace
-        {
-            public class TestClass
-                : IDisposable
-            {
-                public void Dispose() { }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string SingleInheritanceWithPrimaryConstructorOnSameLine =
-        """
-        using System;
-        using System.Data;
-
-        namespace TestNamespace
-        {
-            public class TestClass
-                (
-                IDbConnection DbConnection,
-                IDbTransaction DbTransaction
-                ){|#0:: IDisposable|}
-            {
-                public void Dispose() { }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string SingleInheritanceWithPrimaryConstructorOnSameLineFixed =
-        """
-        using System;
-        using System.Data;
-
-        namespace TestNamespace
-        {
-            public class TestClass
-                (
-                IDbConnection DbConnection,
-                IDbTransaction DbTransaction
-                )
-                : IDisposable
-            {
-                public void Dispose() { }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string SingleInheritanceWithBadIndentation =
-        """
-        using System;
-
-        namespace TestNamespace
-        {
-            public class TestClass
-                 {|#0:: IDisposable|}
-            {
-                public void Dispose() { }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string SingleInheritanceWithBadIndentationExpectedFixed =
-        """
-        using System;
-
-        namespace TestNamespace
-        {
-            public class TestClass
-                : IDisposable
-            {
-                public void Dispose() { }
-            }
-        }
-        """;
-
-    #endregion
-
-    #region Test Case Data - Conditional Operator Diagnostics
-
-    [StringSyntax("c#-test")]
-    private const string ConditionalOperatorSingleLine =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public string TestMethod()
-                {
-                    var condition = true;
-                    return {|#0:condition ? "Yes" : "No"|};
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string ConditionalOperatorSingleLineFixed =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public string TestMethod()
-                {
-                    var condition = true;
-                    return condition
-                        ? "Yes"
-                        : "No";
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string ConditionalOperatorAssignmentSingleLine =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public string TestMethod()
-                {
-                    var condition = true;
-                    var result = {|#0:condition ? "Yes" : "No"|};
-                    return result;
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string ConditionalOperatorAssignmentSingleLineFixed =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public string TestMethod()
-                {
-                    var condition = true;
-                    var result =
-                        condition
-                            ? "Yes"
-                            : "No";
-                    return result;
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string ConditionalOperatorPartialSplit =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public string TestMethod()
-                {
-                    var condition = true;
-                    return {|#0:condition ?
-                        "Yes" :
-                        "No"|};
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string ConditionalOperatorPartialSplitFixed =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public string TestMethod()
-                {
-                    var condition = true;
-                    return condition
-                        ? "Yes"
-                        : "No";
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string ConditionalOperatorWrongIndentation =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public string TestMethod()
-                {
-                    var condition = true;
-                    return {|#0:condition
-                    ? "Yes"
-                    : "No"|};
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string ConditionalOperatorWrongIndentationFixed =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                public string TestMethod()
-                {
-                    var condition = true;
-                    return condition
-                        ? "Yes"
-                        : "No";
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string ConditionalOperatorReturnCorrectlyFormatted =
-        """
-        namespace TestNamespace;
-
-        public class TestClass
-        {
-            public string TestMethod()
-            {
-                var condition = true;
-                return condition
-                    ? "Yes"
-                    : "No";
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string ConditionalOperatorAssignmentCorrectlyFormatted =
-        """
-        namespace TestNamespace;
-
-        public class TestClass
-        {
-            public string TestMethod()
-            {
-                var condition = true;
-                var result =
-                    condition
-                        ? "Yes"
-                        : "No";
-                return result;
-            }
-        }
-        """;
-
-    #endregion
-
-    // Helper class to get diagnostic descriptors
-    private static class DiagnosticHelper
-    {
-        private static readonly NiklasifieraAnalyzer Analyzer =
-            new();
-
-        public static DiagnosticResult GetDiagnostic(int ruleIndex)
-        {
-            var rule =
-                Analyzer.SupportedDiagnostics[ruleIndex];
-
-            return VerifyCS.Diagnostic(rule);
-        }
-
-        public static DiagnosticResult Signature()
-            => GetDiagnostic(0);
-
-        public static DiagnosticResult Inheritance()
-            => GetDiagnostic(1);
-
-        public static DiagnosticResult ConditionalOperator()
-            => GetDiagnostic(2);
-    }
-
     // Tests that should produce no diagnostics
     [TestMethod]
     [DataRow(EmptyCode, DisplayName = "Empty code")]
@@ -763,6 +31,8 @@ public class NiklasifieraUnitTest
     [DataRow(RecordWithTwoParametersCorrectlyFormatted, DisplayName = "Record with multiple parameters correctly formatted")]
     [DataRow(ConditionalOperatorReturnCorrectlyFormatted, DisplayName = "Conditional operator in return correctly formatted")]
     [DataRow(ConditionalOperatorAssignmentCorrectlyFormatted, DisplayName = "Conditional operator in assignment correctly formatted")]
+    [DataRow(NestedConditionalCorrectlyFormatted, DisplayName = "Nested conditional operator correctly formatted")]
+    [DataRow(NestedConditionalInAssignmentCorrectlyFormatted, DisplayName = "Nested conditional in assignment correctly formatted")]
     public async Task NoDiagnostic_Tests
         (
         [StringSyntax("c#-test")] string testCode
@@ -770,32 +40,18 @@ public class NiklasifieraUnitTest
         => await VerifyCS
             .VerifyAnalyzerAsync(testCode);
 
-    // Test data class to reduce primitive obsession
-    public sealed class DiagnosticTestCase
-        (
-        string testCode,
-        string fixedCode,
-        string expectedIdentifier
-        )
-    {
-        public string TestCode { get; init; } = testCode;
-        public string FixedCode { get; init; } = fixedCode;
-        public string ExpectedIdentifier { get; init; } = expectedIdentifier;
-    }
-
     // Tests for signature diagnostics (methods/constructors with multiple parameters on single line)
     [TestMethod]
     [DynamicData(nameof(GetSignatureTestCases), DynamicDataSourceType.Method)]
     public async Task SignatureDiagnostic_Tests(DiagnosticTestCase testCase)
     {
-        var expected =
+        var diagnostic =
             DiagnosticHelper
                 .Signature()
                 .WithLocation(0)
                 .WithArguments(testCase.ExpectedIdentifier);
 
-        await VerifyCS
-            .VerifyCodeFixAsync(testCase.TestCode, expected, testCase.FixedCode);
+        await VerifyCodeFixWithDiagnosticAsync(diagnostic, testCase.TestCode, testCase.FixedCode);
     }
 
     private static IEnumerable<object[]> GetSignatureTestCases()
@@ -827,14 +83,13 @@ public class NiklasifieraUnitTest
     [DynamicData(nameof(GetInheritanceTestCases), DynamicDataSourceType.Method)]
     public async Task InheritanceDiagnostic_Tests(DiagnosticTestCase testCase)
     {
-        var expected =
+        var diagnostic =
             DiagnosticHelper
                 .Inheritance()
                 .WithLocation(0)
                 .WithArguments(testCase.ExpectedIdentifier);
 
-        await VerifyCS
-            .VerifyCodeFixAsync(testCase.TestCode, expected, testCase.FixedCode);
+        await VerifyCodeFixWithDiagnosticAsync(diagnostic, testCase.TestCode, testCase.FixedCode);
     }
 
     private static IEnumerable<object[]> GetInheritanceTestCases()
@@ -842,17 +97,6 @@ public class NiklasifieraUnitTest
         yield return [new DiagnosticTestCase(SingleInheritanceOnSameLine, SingleInheritanceOnSameLineFixed, "TestClass")];
         yield return [new DiagnosticTestCase(SingleInheritanceWithPrimaryConstructorOnSameLine, SingleInheritanceWithPrimaryConstructorOnSameLineFixed, "TestClass")];
         yield return [new DiagnosticTestCase(SingleInheritanceWithBadIndentation, SingleInheritanceWithBadIndentationExpectedFixed, "TestClass")];
-    }
-
-    // Test data class for conditional operator tests (no identifier needed)
-    public sealed class ConditionalOperatorTestCase
-        (
-        string testCode,
-        string fixedCode
-        )
-    {
-        public string TestCode { get; init; } = testCode;
-        public string FixedCode { get; init; } = fixedCode;
     }
 
     // Tests for conditional operator diagnostics
@@ -877,207 +121,224 @@ public class NiklasifieraUnitTest
         yield return [new ConditionalOperatorTestCase(ConditionalOperatorWrongIndentation, ConditionalOperatorWrongIndentationFixed)];
     }
 
-    #region Trivia Preservation Test Case Data
+    // Tests for nested conditional operator diagnostics (multiple diagnostics expected)
+    [TestMethod]
+    public async Task NestedConditionalSingleLine_Diagnostic()
+    {
+        var expectedOuter =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(9, 20, 9, 63);
 
-    [StringSyntax("c#-test")]
-    private const string MethodWithCommentsAndTwoParameters =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                // This method processes data
-                public void ProcessData{|#0:(/* input */ int data, string format /* output format */)|}
-                {
-                }
-            }
-        }
-        """;
+        var expectedInner =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(9, 34, 9, 56);
 
-    [StringSyntax("c#-test")]
-    private const string MethodWithCommentsPreserved =
-        """
-        namespace TestNamespace
-        {
-            public class TestClass
-            {
-                // This method processes data
-                public void ProcessData
-                    (
-                    /* input */ int data,
-                    string format /* output format */
-                    )
-                {
-                }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string InheritanceWithCommentsOnColonLine =
-        """
-        using System;
-        using System.Threading.Tasks;
-
-        namespace TestNamespace
-        {
-            public class SampleClient6 {|#0:: // niklas testar
-                IAsyncDisposable
-                // hello world
-                , IDisposable|}
-            {
-                public void Dispose() { }
-                public ValueTask DisposeAsync() => new ValueTask();
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string InheritanceWithCommentsOnColonPreserved =
-        """
-        using System;
-        using System.Threading.Tasks;
-
-        namespace TestNamespace
-        {
-            public class SampleClient6
-                // niklas testar
-                : IAsyncDisposable
-                // hello world
-                , IDisposable
-            {
-                public void Dispose() { }
-                public ValueTask DisposeAsync() => new ValueTask();
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string InheritanceWithComments =
-        """
-        using System;
-        
-        namespace TestNamespace
-        {
-            // Important class comment
-            public class TestClass /* inline comment */ {|#0:: IDisposable|}
-            {
-                public void Dispose() { }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string InheritanceWithCommentsIntelligentlyRepositioned =
-        """
-        using System;
-        
-        namespace TestNamespace
-        {
-            // Important class comment
-            public class TestClass /* inline comment */ 
-                : IDisposable
-            {
-                public void Dispose() { }
-            }
-        }
-        """;
-
-    [StringSyntax("c#-test")]
-    private const string InheritanceWithCommentsPreserved =
-        """
-        using System;
-        
-        namespace TestNamespace
-        {
-            // Important class comment
-            public class TestClass /* inline comment */
-                : IDisposable /* implements disposable */
-            {
-                public void Dispose() { }
-            }
-        }
-        """;
-
-    #endregion
-
-    #region Trivia Preservation Tests
+        await VerifyNestedConditionalFixAsync(NestedConditionalSingleLine, [expectedOuter, expectedInner], NestedConditionalSingleLineFixed);
+    }
 
     [TestMethod]
-    public async Task InheritanceWithCommentsOnColon_PreservesTrivia()
+    public async Task NestedConditionalInAssignment_Diagnostic()
     {
-        // Set up mock configuration to preserve trivia
-        var mockConfig = new MockConfigurationService(
-            triviaHandling: TriviaHandlingBehavior.Preserve,
-            indentationUnit: "    ",
-            lineEnding: "\r\n"
-        );
+        var expectedOuter =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(9, 26, 9, 69);
 
-        TestableNiklasifieraCodeFixProvider.MockConfigurationService = mockConfig;
+        var expectedInner =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(9, 40, 9, 62);
 
-        try
-        {
-            var test = new CSharpCodeFixTest<NiklasifieraAnalyzer, TestableNiklasifieraCodeFixProvider, DefaultVerifier>
+        await VerifyNestedConditionalFixAsync(NestedConditionalInAssignment, [expectedOuter, expectedInner], NestedConditionalInAssignmentFixed);
+    }
+
+    [TestMethod]
+    public async Task DeeplyNestedConditional_Diagnostic()
+    {
+        var expected1 =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(10, 20, 10, 60);
+
+        var expected2 =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(10, 26, 10, 53);
+
+        var expected3 =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(10, 32, 10, 46);
+
+        await VerifyNestedConditionalFixAsync(DeeplyNestedConditional, [expected1, expected2, expected3], DeeplyNestedConditionalFixed, numberOfFixAllIterations: 3);
+    }
+
+    [TestMethod]
+    public async Task NestedConditionalInFalseBranch_Diagnostic()
+    {
+        var expectedOuter =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(9, 20, 9, 63);
+
+        var expectedInner =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(9, 40, 9, 62);
+
+        await VerifyNestedConditionalFixAsync(NestedConditionalInFalseBranch, [expectedOuter, expectedInner], NestedConditionalInFalseBranchFixed);
+    }
+
+    [TestMethod]
+    public async Task NestedConditionalPartiallyFormatted_Diagnostic()
+    {
+        var expectedInner =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(10, 20, 10, 42);
+
+        await VerifyCS
+            .VerifyCodeFixAsync(NestedConditionalPartiallyFormatted, expectedInner, NestedConditionalPartiallyFormattedFixed);
+    }
+
+    [TestMethod]
+    public async Task NestedConditionalWithComplexCondition_Diagnostic()
+    {
+        var expectedOuter =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(8, 20, 8, 101);
+
+        var expectedInner =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(8, 54, 8, 94);
+
+        await VerifyNestedConditionalFixAsync(NestedConditionalWithComplexCondition, [expectedOuter, expectedInner], NestedConditionalWithComplexConditionFixed);
+    }
+
+    [TestMethod]
+    public async Task NestedConditionalWithoutParensMultiLineCondition_Diagnostic()
+    {
+        // This is the exact scenario from the sample code
+        // It produces 2 diagnostics because both the outer and nested conditionals are on single lines
+        var expectedOuter =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(9, 17, 13, 31);
+
+        var expectedNested =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(10, 45, 12, 35);
+
+        // With the multi-line condition fix, this now only needs 1 iteration
+        await VerifyNestedConditionalFixAsync(
+            NestedConditionalWithoutParensMultiLineCondition,
+            [expectedOuter, expectedNested],
+            NestedConditionalWithoutParensMultiLineConditionFixed,
+            numberOfFixAllIterations: 1);
+    }
+
+    // Helper method for nested conditional tests that need multiple fix iterations
+    private static async Task VerifyNestedConditionalFixAsync
+        (
+        string testCode,
+        DiagnosticResult[] diagnostics,
+        string fixedCode,
+        int numberOfFixAllIterations = 2
+        )
+    {
+        var test =
+            new CSharpCodeFixTest<NiklasifieraAnalyzer, NiklasifieraCodeFixProvider, DefaultVerifier>
             {
-                TestCode = InheritanceWithCommentsOnColonLine.ReplaceLineEndings(),
-                FixedCode = InheritanceWithCommentsOnColonPreserved.ReplaceLineEndings()
+                TestCode = testCode.ReplaceLineEndings(),
+                FixedCode = fixedCode.ReplaceLineEndings(),
+                NumberOfFixAllIterations = numberOfFixAllIterations
             };
 
-            test.ExpectedDiagnostics
-                .Add
-                (
-                    DiagnosticHelper
-                        .Inheritance()
-                        .WithLocation(0)
-                        .WithArguments("SampleClient6")
-                );
+        test.ExpectedDiagnostics
+            .AddRange(diagnostics);
 
-            await test.RunAsync();
-        }
-        finally
-        {
-            TestableNiklasifieraCodeFixProvider.MockConfigurationService = null;
-        }
+        await test
+            .RunAsync();
     }
+
+    // Tests for trivia preservation in inheritance formatting
+    [TestMethod]
+    public async Task InheritanceWithCommentsOnColon_PreservesTrivia()
+        => await VerifyInheritanceTriviaPreservationAsync
+        (
+            InheritanceWithCommentsOnColonLine,
+            InheritanceWithCommentsOnColonPreserved,
+            "SampleClient6"
+        );
 
     [TestMethod]
     public async Task InheritanceWithInlineComments_IntelligentlyRepositionsComments()
-    {
-        // Set up the mock configuration service
-        var mockConfig = new MockConfigurationService(
-            triviaHandling: TriviaHandlingBehavior.Preserve,
-            indentationUnit: "    ",
-            lineEnding: "\r\n"
+        => await VerifyInheritanceTriviaPreservationAsync
+        (
+            InheritanceWithComments,
+            InheritanceWithCommentsIntelligentlyRepositioned,
+            "TestClass"
         );
+
+    // Helper method to reduce test duplication
+    private static async Task VerifyCodeFixWithDiagnosticAsync
+        (
+        DiagnosticResult diagnostic,
+        string testCode,
+        string fixedCode
+        )
+        => await VerifyCS
+            .VerifyCodeFixAsync(testCode, diagnostic, fixedCode);
+
+    // Helper method for trivia preservation tests
+    private static async Task VerifyInheritanceTriviaPreservationAsync
+        (
+        string testCode,
+        string fixedCode,
+        string argumentValue
+        )
+    {
+        var mockConfig =
+            new MockConfigurationService
+            (
+                triviaHandling: TriviaHandlingBehavior.Preserve,
+                indentationUnit: "    ",
+                lineEnding: "\r\n"
+            );
+
+        var diagnostic =
+            DiagnosticHelper
+                .Inheritance()
+                .WithLocation(0)
+                .WithArguments(argumentValue);
 
         TestableNiklasifieraCodeFixProvider.MockConfigurationService = mockConfig;
 
         try
         {
-            var test = new CSharpCodeFixTest<NiklasifieraAnalyzer, TestableNiklasifieraCodeFixProvider, DefaultVerifier>
-            {
-                TestCode = InheritanceWithComments.ReplaceLineEndings(),
-                FixedCode = InheritanceWithCommentsIntelligentlyRepositioned.ReplaceLineEndings()
-            };
+            var test =
+                new CSharpCodeFixTest<NiklasifieraAnalyzer, TestableNiklasifieraCodeFixProvider, DefaultVerifier>
+                {
+                    TestCode = testCode.ReplaceLineEndings(),
+                    FixedCode = fixedCode.ReplaceLineEndings()
+                };
 
             test.ExpectedDiagnostics
-                .Add
-                (
-                    DiagnosticHelper
-                        .Inheritance()
-                        .WithLocation(0)
-                        .WithArguments("TestClass")
-                );
+                .Add(diagnostic);
 
-            await test.RunAsync();
+            await test
+                .RunAsync();
         }
         finally
         {
             TestableNiklasifieraCodeFixProvider.MockConfigurationService = null;
         }
     }
-
-    #endregion
 
     // NOTE: This test demonstrates intelligent comment repositioning functionality
     // but cannot run automatically due to test framework limitations with .editorconfig settings.
@@ -1114,6 +375,54 @@ public class NiklasifieraUnitTest
 }
 
 #region Test Infrastructure for Mocking
+
+// Helper class to get diagnostic descriptors
+public static class DiagnosticHelper
+{
+    private static readonly NiklasifieraAnalyzer Analyzer =
+        new();
+
+    public static DiagnosticResult GetDiagnostic(int ruleIndex)
+    {
+        var rule =
+            Analyzer.SupportedDiagnostics[ruleIndex];
+
+        return VerifyCS.Diagnostic(rule);
+    }
+
+    public static DiagnosticResult Signature()
+        => GetDiagnostic(0);
+
+    public static DiagnosticResult Inheritance()
+        => GetDiagnostic(1);
+
+    public static DiagnosticResult ConditionalOperator()
+        => GetDiagnostic(2);
+}
+
+// Test data class for conditional operator tests (no identifier needed)
+public sealed class ConditionalOperatorTestCase
+    (
+    string testCode,
+    string fixedCode
+    )
+{
+    public string TestCode { get; init; } = testCode;
+    public string FixedCode { get; init; } = fixedCode;
+}
+
+// Test data class to reduce primitive obsession
+public sealed class DiagnosticTestCase
+    (
+    string testCode,
+    string fixedCode,
+    string expectedIdentifier
+    )
+{
+    public string TestCode { get; init; } = testCode;
+    public string FixedCode { get; init; } = fixedCode;
+    public string ExpectedIdentifier { get; init; } = expectedIdentifier;
+}
 
 /// <summary>
 /// Mock implementation of IConfigurationService for testing
@@ -1158,7 +467,7 @@ internal class TestableNiklasifieraCodeFixProvider
         var configService =
             MockConfigurationService
                 ?? new MockConfigurationService();
-                
+
         return
         [
             new SignatureFormattingService(configService),

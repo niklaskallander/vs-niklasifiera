@@ -16,16 +16,47 @@ public class TestConditionalOperator
             "Yes" :
             "No";
 
-        // BAD
+        // OK
         something = condition
             ? "Yes"
             : "No";
+
+        // OK
+        something = condition
+            .ToString() == "True"
+                ? "Yes"
+                : "No";
 
         // GOOD
         something =
             condition
                 ? "Yes"
                 : "No";
+
+        // GOOD
+        something =
+            condition
+                .ToString() == "True"
+                    ? "Yes"
+                    : "No";
+
+        // NESTED, BAD
+        something =
+            condition
+                .ToString() == "True" ? condition
+                        .GetHashCode() == 3 ? "Yes"
+                            : "No"
+                    : "No";
+
+        // NESTED, GOOD
+        something =
+            condition
+                .ToString() == "True"
+                    ? condition
+                        .GetHashCode() == 3
+                            ? "Yes"
+                            : "No"
+                    : "No";
 
         return something;
     }

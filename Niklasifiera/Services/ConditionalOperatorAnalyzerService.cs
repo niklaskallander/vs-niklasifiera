@@ -91,39 +91,14 @@ public class ConditionalOperatorAnalyzerService
             return true; // Single-line is always a violation.
         }
 
-        var isAssignment =
-            IsPartOfAssignment(conditionalExpression);
-
-        return !IsCorrectlyFormatted(conditionalExpression, sourceText, optionsProvider, isAssignment);
-    }
-
-    private bool IsPartOfAssignment(ConditionalExpressionSyntax conditionalExpression)
-    {
-        var parent =
-            conditionalExpression.Parent;
-
-        // Check for direct assignment
-        if (parent is EqualsValueClauseSyntax equalsValue)
-        {
-            return equalsValue.Parent is VariableDeclaratorSyntax
-                || equalsValue.Parent?.Parent is AssignmentExpressionSyntax;
-        }
-
-        // Check for assignment expression
-        if (parent is AssignmentExpressionSyntax)
-        {
-            return true;
-        }
-
-        return false;
+        return !IsCorrectlyFormatted(conditionalExpression, sourceText, optionsProvider);
     }
 
     private bool IsCorrectlyFormatted
         (
         ConditionalExpressionSyntax conditionalExpression,
         SourceText sourceText,
-        AnalyzerConfigOptionsProvider optionsProvider,
-        bool isAssignment
+        AnalyzerConfigOptionsProvider optionsProvider
         )
     {
         var context =
@@ -134,85 +109,14 @@ public class ConditionalOperatorAnalyzerService
                 ConfigurationReader.GetIndentationUnit(conditionalExpression.SyntaxTree, optionsProvider)
             );
 
-        if (isAssignment)
-        {
-            return ValidateAssignmentFormatting(conditionalExpression, context);
-        }
-
-        return ValidateReturnOrOtherFormatting(conditionalExpression, context);
+        return ValidateFormatting(context);
     }
 
-    private bool ValidateAssignmentFormatting
-        (
-        ConditionalExpressionSyntax conditionalExpression,
-        ConditionalFormattingContext context
-        )
+    private bool ValidateFormatting(ConditionalFormattingContext context)
     {
-        var equalsTokenLine =
-            GetEqualsTokenLine(conditionalExpression, context.SourceText);
-
-        if (equalsTokenLine is null)
-        {
-            return true; // Cannot determine context, assume correct.
-        }
-
-        // Validate multi-line split
-        if (!context.IsProperlySplitForAssignment(equalsTokenLine.Value))
-        {
-            return false;
-        }
-
-        // Get base indentation
-        var assignmentIndentation =
-            GetAssignmentIndentation(conditionalExpression, context.SourceText);
-
-        if (assignmentIndentation is null)
-        {
-            return true; // Cannot determine indentation, assume correct.
-        }
-
-        // Validate indentation
-        return context
-            .ValidateAssignmentIndentation(assignmentIndentation);
-    }
-
-    private bool ValidateReturnOrOtherFormatting
-        (
-        ConditionalExpressionSyntax conditionalExpression,
-        ConditionalFormattingContext context
-        )
-    {
-        var parentStatement =
-            conditionalExpression
-                .FirstAncestorOrSelf<StatementSyntax>();
-
-        if (parentStatement is null)
-        {
-            return true;
-        }
-
-        var statementLine =
-            context.SourceText
-                .GetLineNumberFor(parentStatement.GetFirstToken());
-
-        // Validate multi-line split
-        if (!context.IsProperlySplitForReturnOrOther(statementLine))
-        {
-            return false;
-        }
-
-        // Get base indentation
-        var statementIndentation =
-            GetStatementIndentation(conditionalExpression, context.SourceText);
-
-        if (statementIndentation is null)
-        {
-            return true; // Cannot determine statement, assume correct
-        }
-
-        // Validate indentation
-        return context
-            .ValidateReturnOrOtherIndentation(statementIndentation);
+        // Rule: ? and : operators must be on separate lines after the condition
+        // and indented one level from the line where the condition ends
+        return context.IsProperlyFormatted();
     }
 
     /// <summary>
@@ -227,9 +131,9 @@ public class ConditionalOperatorAnalyzerService
     {
         public SourceText SourceText { get; } = sourceText;
 
-        public int ConditionLine { get; } =
+        public int ConditionEndLine { get; } =
             sourceText
-                .GetLineNumberFor(conditionalExpression.Condition.GetFirstToken());
+                .GetLineNumberFor(conditionalExpression.Condition.GetLastToken());
 
         public int QuestionLine { get; } =
             sourceText
@@ -245,45 +149,26 @@ public class ConditionalOperatorAnalyzerService
 
         private readonly string _indentationUnit = indentationUnit;
 
-        public bool IsProperlySplitForAssignment(int equalsTokenLine)
-            => ConditionLine > equalsTokenLine
-            && QuestionLine > ConditionLine
-            && ColonLine > WhenTrueLine;
-
-        public bool IsProperlySplitForReturnOrOther(int statementLine)
-            => ConditionLine == statementLine
-            && QuestionLine > ConditionLine
-            && ColonLine > WhenTrueLine;
-
-        public bool ValidateAssignmentIndentation(string baseIndentation)
+        /// <summary>
+        /// Validates that the conditional expression is properly formatted:
+        /// - ? and : operators must be on separate lines after the condition
+        /// - Both operators must be indented one level from the condition's last line
+        /// </summary>
+        public bool IsProperlyFormatted()
         {
-            var expectedConditionIndentation =
-                baseIndentation + _indentationUnit;
+            // Rule 1: Operators must be on separate lines after condition
+            if (QuestionLine <= ConditionEndLine || ColonLine <= WhenTrueLine)
+            {
+                return false;
+            }
 
-            var expectedOperatorIndentation =
-                expectedConditionIndentation + _indentationUnit;
-
+            // Rule 2: Both operators must have same indentation (one level from condition)
             var conditionIndentation =
                 SourceText
-                    .GetLineIndentationFor(ConditionLine);
+                    .GetLineIndentationFor(ConditionEndLine);
 
-            var questionIndentation =
-                SourceText
-                    .GetLineIndentationFor(QuestionLine);
-
-            var colonIndentation =
-                SourceText
-                    .GetLineIndentationFor(ColonLine);
-
-            return conditionIndentation == expectedConditionIndentation
-                && questionIndentation == expectedOperatorIndentation
-                && colonIndentation == expectedOperatorIndentation;
-        }
-
-        public bool ValidateReturnOrOtherIndentation(string baseIndentation)
-        {
             var expectedOperatorIndentation =
-                baseIndentation + _indentationUnit;
+                conditionIndentation + _indentationUnit;
 
             var questionIndentation =
                 SourceText
@@ -296,91 +181,5 @@ public class ConditionalOperatorAnalyzerService
             return questionIndentation == expectedOperatorIndentation
                 && colonIndentation == expectedOperatorIndentation;
         }
-    }
-
-    private string? GetAssignmentIndentation
-        (
-        ConditionalExpressionSyntax conditionalExpression,
-        SourceText sourceText
-        )
-    {
-        var parent =
-            conditionalExpression.Parent;
-
-        if (parent is EqualsValueClauseSyntax equalsValue)
-        {
-            if (equalsValue.Parent is VariableDeclaratorSyntax declarator)
-            {
-                var declaratorLine =
-                    sourceText
-                        .GetLineNumberFor(declarator);
-
-                return sourceText
-                    .GetLineIndentationFor(declaratorLine);
-            }
-        }
-
-        if (parent is AssignmentExpressionSyntax assignment)
-        {
-            var assignmentLine =
-                sourceText
-                    .GetLineNumberFor(assignment);
-
-            return sourceText
-                .GetLineIndentationFor(assignmentLine);
-        }
-
-        return null;
-    }
-
-    private int? GetEqualsTokenLine
-        (
-        ConditionalExpressionSyntax conditionalExpression,
-        SourceText sourceText
-        )
-    {
-        var parent =
-            conditionalExpression.Parent;
-
-        if (parent is EqualsValueClauseSyntax equalsValue)
-        {
-            return sourceText
-                .GetLineNumberFor(equalsValue.EqualsToken);
-        }
-
-        if (parent is AssignmentExpressionSyntax assignment)
-        {
-            return sourceText
-                .GetLineNumberFor(assignment.OperatorToken);
-        }
-
-        return null;
-    }
-
-    private string? GetStatementIndentation
-        (
-        ConditionalExpressionSyntax conditionalExpression,
-        SourceText sourceText
-        )
-    {
-        var parent =
-            conditionalExpression.Parent;
-
-        while (parent != null)
-        {
-            if (parent is StatementSyntax statement)
-            {
-                var statementLine =
-                    sourceText
-                        .GetLineNumberFor(statement);
-
-                return sourceText
-                    .GetLineIndentationFor(statementLine);
-            }
-
-            parent = parent.Parent;
-        }
-
-        return null;
     }
 }
