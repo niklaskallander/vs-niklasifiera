@@ -679,19 +679,23 @@ public class ConditionalOperatorFormattingService(IConfigurationService configur
                 .ConfigureAwait(false);
 
         var newConditionalExpression =
-            await FormatAsync(document, conditionalExpression, sourceText)
-                .ConfigureAwait(false);
+            (await FormatAsync(document, conditionalExpression, sourceText)
+                .ConfigureAwait(false))
+            // Preserve the original conditional's trailing trivia so that substituting
+            // the node doesn't glue the following token onto the conditional's last line.
+            // Matters mostly when the conditional is the last value in an object initializer
+            // (no trailing comma — only a newline separates it from the closing brace).
+            .WithTrailingTrivia(conditionalExpression.GetTrailingTrivia());
 
-        // For assignments, we need to modify both the conditional AND the equals token
+        // For assignments, we anchor the rewrite on the conditional's IMMEDIATE parent
+        // so we don't accidentally replace a larger ancestor (e.g. an enclosing object
+        // initializer assigned to a variable).
         if (IsPartOfAssignment(conditionalExpression))
         {
-            var declarator =
-                conditionalExpression
-                    .FirstAncestorOrSelf<VariableDeclaratorSyntax>();
-
-            if (declarator?.Initializer != null)
+            // var x = <conditional>;
+            if (conditionalExpression.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax declarator }
+                && declarator.Initializer is not null)
             {
-                // Create new initializer with no trailing space on = and the formatted conditional
                 var newEqualsToken =
                     declarator.Initializer.EqualsToken
                         .WithTrailingTrivia(SyntaxFactory.TriviaList());
@@ -712,13 +716,9 @@ public class ConditionalOperatorFormattingService(IConfigurationService configur
                     .WithSyntaxRoot(newRoot);
             }
 
-            // Handle regular assignment (not variable declaration)
-            var assignment =
-                conditionalExpression.Parent as AssignmentExpressionSyntax;
-
-            if (assignment != null)
+            // x = <conditional>;  or  Property = <conditional>  inside an initializer.
+            if (conditionalExpression.Parent is AssignmentExpressionSyntax assignment)
             {
-                // Create new assignment with no trailing space on = and the formatted conditional
                 var newOperatorToken =
                     assignment.OperatorToken
                         .WithTrailingTrivia(SyntaxFactory.TriviaList());

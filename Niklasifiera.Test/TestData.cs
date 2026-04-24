@@ -1100,6 +1100,438 @@ internal static class TestData
         }
         """;
 
+    // Object initializer property assignment cases. The conditional sits as the right-hand
+    // side of an `AssignmentExpressionSyntax` whose parent is an `InitializerExpressionSyntax`
+    // (object/collection initializer), not a variable declaration. Exercises both the
+    // "is-in-assignment" indentation path and the recursive nested-conditional fix.
+    [StringSyntax("c#-test")]
+    public const string ConditionalOperatorInObjectInitializerSingle =
+        """
+        namespace TestNamespace
+        {
+            public class Item
+            {
+                public string Name { get; set; }
+                public string Description { get; set; }
+            }
+
+            public class TestClass
+            {
+                public Item TestMethod()
+                {
+                    var condition = true;
+                    return new Item
+                    {
+                        Name = {|#0:condition ? "A" : "B"|},
+                        Description = "X"
+                    };
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    public const string ConditionalOperatorInObjectInitializerSingleFixed =
+        """
+        namespace TestNamespace
+        {
+            public class Item
+            {
+                public string Name { get; set; }
+                public string Description { get; set; }
+            }
+
+            public class TestClass
+            {
+                public Item TestMethod()
+                {
+                    var condition = true;
+                    return new Item
+                    {
+                        Name =
+                            condition
+                                ? "A"
+                                : "B",
+                        Description = "X"
+                    };
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    public const string NestedConditionalInObjectInitializer =
+        """
+        namespace TestNamespace
+        {
+            public class Item
+            {
+                public string Name { get; set; }
+                public string Description { get; set; }
+            }
+
+            public class TestClass
+            {
+                public Item TestMethod()
+                {
+                    var condition1 = true;
+                    var condition2 = false;
+                    return new Item
+                    {
+                        Name = {|#0:condition1 ? (condition2 ? "A" : "B") : "C"|},
+                        Description = "X"
+                    };
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    public const string NestedConditionalInObjectInitializerFixed =
+        """
+        namespace TestNamespace
+        {
+            public class Item
+            {
+                public string Name { get; set; }
+                public string Description { get; set; }
+            }
+
+            public class TestClass
+            {
+                public Item TestMethod()
+                {
+                    var condition1 = true;
+                    var condition2 = false;
+                    return new Item
+                    {
+                        Name =
+                            condition1
+                                ? (condition2
+                                    ? "A"
+                                    : "B")
+                                : "C",
+                        Description = "X"
+                    };
+                }
+            }
+        }
+        """;
+
+    // Right-associative nested conditional without explicit parentheses. AST has the inner
+    // ConditionalExpression directly under the outer's WhenTrue (no ParenthesizedExpression
+    // wrapper), so the recursive nested-fix path is exercised differently.
+    [StringSyntax("c#-test")]
+    public const string NestedConditionalInObjectInitializerNoParens =
+        """
+        namespace TestNamespace
+        {
+            public class Item
+            {
+                public string Name { get; set; }
+                public string Description { get; set; }
+            }
+
+            public class TestClass
+            {
+                public Item TestMethod()
+                {
+                    var condition1 = true;
+                    var condition2 = false;
+                    return new Item
+                    {
+                        Name = {|#0:condition1 ? condition2 ? "A" : "B" : "C"|},
+                        Description = "X"
+                    };
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    public const string NestedConditionalInObjectInitializerNoParensFixed =
+        """
+        namespace TestNamespace
+        {
+            public class Item
+            {
+                public string Name { get; set; }
+                public string Description { get; set; }
+            }
+
+            public class TestClass
+            {
+                public Item TestMethod()
+                {
+                    var condition1 = true;
+                    var condition2 = false;
+                    return new Item
+                    {
+                        Name =
+                            condition1
+                                ? condition2
+                                    ? "A"
+                                    : "B"
+                                : "C",
+                        Description = "X"
+                    };
+                }
+            }
+        }
+        """;
+
+    // Nested conditional sits in the WhenFalse branch of the outer (rather than WhenTrue).
+    [StringSyntax("c#-test")]
+    public const string NestedConditionalInObjectInitializerFalseBranch =
+        """
+        namespace TestNamespace
+        {
+            public class Item
+            {
+                public string Name { get; set; }
+                public string Description { get; set; }
+            }
+
+            public class TestClass
+            {
+                public Item TestMethod()
+                {
+                    var condition1 = true;
+                    var condition2 = false;
+                    return new Item
+                    {
+                        Name = {|#0:condition1 ? "A" : (condition2 ? "B" : "C")|},
+                        Description = "X"
+                    };
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    public const string NestedConditionalInObjectInitializerFalseBranchFixed =
+        """
+        namespace TestNamespace
+        {
+            public class Item
+            {
+                public string Name { get; set; }
+                public string Description { get; set; }
+            }
+
+            public class TestClass
+            {
+                public Item TestMethod()
+                {
+                    var condition1 = true;
+                    var condition2 = false;
+                    return new Item
+                    {
+                        Name =
+                            condition1
+                                ? "A"
+                                : (condition2
+                                    ? "B"
+                                    : "C"),
+                        Description = "X"
+                    };
+                }
+            }
+        }
+        """;
+
+    // Two conditional property assignments in the same initializer — exercises the case
+    // where the analyzer reports multiple independent diagnostics on sibling assignments.
+    [StringSyntax("c#-test")]
+    public const string MultipleConditionalsInObjectInitializer =
+        """
+        namespace TestNamespace
+        {
+            public class Item
+            {
+                public string Name { get; set; }
+                public string Description { get; set; }
+            }
+
+            public class TestClass
+            {
+                public Item TestMethod()
+                {
+                    var condition1 = true;
+                    var condition2 = false;
+                    return new Item
+                    {
+                        Name = condition1 ? "A" : "B",
+                        Description = condition2 ? "X" : "Y"
+                    };
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    public const string MultipleConditionalsInObjectInitializerFixed =
+        """
+        namespace TestNamespace
+        {
+            public class Item
+            {
+                public string Name { get; set; }
+                public string Description { get; set; }
+            }
+
+            public class TestClass
+            {
+                public Item TestMethod()
+                {
+                    var condition1 = true;
+                    var condition2 = false;
+                    return new Item
+                    {
+                        Name =
+                            condition1
+                                ? "A"
+                                : "B",
+                        Description =
+                            condition2
+                                ? "X"
+                                : "Y"
+                    };
+                }
+            }
+        }
+        """;
+
+    // Conditional inside an object initializer that is itself a value of an outer
+    // initializer. Tests indentation when the property-assignment line is two levels
+    // deeper than the enclosing statement.
+    [StringSyntax("c#-test")]
+    public const string ConditionalInNestedObjectInitializer =
+        """
+        namespace TestNamespace
+        {
+            public class Item
+            {
+                public string Name { get; set; }
+            }
+
+            public class Outer
+            {
+                public Item Inner { get; set; }
+            }
+
+            public class TestClass
+            {
+                public Outer TestMethod()
+                {
+                    var condition = true;
+                    return new Outer
+                    {
+                        Inner = new Item
+                        {
+                            Name = {|#0:condition ? "A" : "B"|}
+                        }
+                    };
+                }
+            }
+        }
+        """;
+
+    // Object initializer assigned to a local variable. The buggy `FirstAncestorOrSelf<
+    // VariableDeclaratorSyntax>` walk replaces the whole `new Item { ... }` value with
+    // just the formatted conditional unless the fix anchors on the immediate parent.
+    [StringSyntax("c#-test")]
+    public const string ConditionalInObjectInitializerAssignedToVariable =
+        """
+        namespace TestNamespace
+        {
+            public class Item
+            {
+                public string Name { get; set; }
+                public string Description { get; set; }
+            }
+
+            public class TestClass
+            {
+                public Item TestMethod()
+                {
+                    var condition = true;
+                    var item = new Item
+                    {
+                        Name = {|#0:condition ? "A" : "B"|},
+                        Description = "X"
+                    };
+                    return item;
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    public const string ConditionalInObjectInitializerAssignedToVariableFixed =
+        """
+        namespace TestNamespace
+        {
+            public class Item
+            {
+                public string Name { get; set; }
+                public string Description { get; set; }
+            }
+
+            public class TestClass
+            {
+                public Item TestMethod()
+                {
+                    var condition = true;
+                    var item = new Item
+                    {
+                        Name =
+                            condition
+                                ? "A"
+                                : "B",
+                        Description = "X"
+                    };
+                    return item;
+                }
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    public const string ConditionalInNestedObjectInitializerFixed =
+        """
+        namespace TestNamespace
+        {
+            public class Item
+            {
+                public string Name { get; set; }
+            }
+
+            public class Outer
+            {
+                public Item Inner { get; set; }
+            }
+
+            public class TestClass
+            {
+                public Outer TestMethod()
+                {
+                    var condition = true;
+                    return new Outer
+                    {
+                        Inner = new Item
+                        {
+                            Name =
+                                condition
+                                    ? "A"
+                                    : "B"
+                        }
+                    };
+                }
+            }
+        }
+        """;
+
     #endregion
 
     #region Trivia Preservation Test Case Data

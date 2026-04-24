@@ -220,6 +220,156 @@ public class NiklasifieraUnitTest
     }
 
     [TestMethod]
+    public async Task ConditionalOperatorInObjectInitializerSingle_Diagnostic()
+    {
+        var expected =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithLocation(0)
+                .WithArguments("conditional operator");
+
+        await VerifyCS
+            .VerifyCodeFixAsync
+            (
+                ConditionalOperatorInObjectInitializerSingle,
+                expected,
+                ConditionalOperatorInObjectInitializerSingleFixed
+            );
+    }
+
+    [TestMethod]
+    public async Task NestedConditionalInObjectInitializer_Diagnostic()
+    {
+        var expectedOuter =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(17, 24, 17, 67)
+                .WithArguments("conditional operator");
+
+        var expectedInner =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(17, 38, 17, 60)
+                .WithArguments("conditional operator");
+
+        await VerifyNestedConditionalFixAsync
+        (
+            NestedConditionalInObjectInitializer,
+            [expectedOuter, expectedInner],
+            NestedConditionalInObjectInitializerFixed
+        );
+    }
+
+    [TestMethod]
+    public async Task NestedConditionalInObjectInitializerNoParens_Diagnostic()
+    {
+        var expectedOuter =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(17, 24, 17, 65)
+                .WithArguments("conditional operator");
+
+        var expectedInner =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(17, 37, 17, 59)
+                .WithArguments("conditional operator");
+
+        // Without parens the inner ConditionalExpression sits directly under the outer's
+        // WhenTrue, so the recursive formatter handles both in a single pass.
+        await VerifyNestedConditionalFixAsync
+        (
+            NestedConditionalInObjectInitializerNoParens,
+            [expectedOuter, expectedInner],
+            NestedConditionalInObjectInitializerNoParensFixed,
+            numberOfFixAllIterations: 1
+        );
+    }
+
+    [TestMethod]
+    public async Task NestedConditionalInObjectInitializerFalseBranch_Diagnostic()
+    {
+        var expectedOuter =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(17, 24, 17, 67)
+                .WithArguments("conditional operator");
+
+        var expectedInner =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(17, 44, 17, 66)
+                .WithArguments("conditional operator");
+
+        await VerifyNestedConditionalFixAsync
+        (
+            NestedConditionalInObjectInitializerFalseBranch,
+            [expectedOuter, expectedInner],
+            NestedConditionalInObjectInitializerFalseBranchFixed
+        );
+    }
+
+    [TestMethod]
+    public async Task MultipleConditionalsInObjectInitializer_Diagnostic()
+    {
+        var expectedFirst =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(17, 24, 17, 46)
+                .WithArguments("conditional operator");
+
+        var expectedSecond =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithSpan(18, 31, 18, 53)
+                .WithArguments("conditional operator");
+
+        await VerifyNestedConditionalFixAsync
+        (
+            MultipleConditionalsInObjectInitializer,
+            [expectedFirst, expectedSecond],
+            MultipleConditionalsInObjectInitializerFixed,
+            numberOfFixAllIterations: 1
+        );
+    }
+
+    [TestMethod]
+    public async Task ConditionalInObjectInitializerAssignedToVariable_Diagnostic()
+    {
+        var expected =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithLocation(0)
+                .WithArguments("conditional operator");
+
+        await VerifyCS
+            .VerifyCodeFixAsync
+            (
+                ConditionalInObjectInitializerAssignedToVariable,
+                expected,
+                ConditionalInObjectInitializerAssignedToVariableFixed
+            );
+    }
+
+    [TestMethod]
+    public async Task ConditionalInNestedObjectInitializer_Diagnostic()
+    {
+        var expected =
+            DiagnosticHelper
+                .ConditionalOperator()
+                .WithLocation(0)
+                .WithArguments("conditional operator");
+
+        await VerifyCS
+            .VerifyCodeFixAsync
+            (
+                ConditionalInNestedObjectInitializer,
+                expected,
+                ConditionalInNestedObjectInitializerFixed
+            );
+    }
+
+    [TestMethod]
     public async Task NestedConditionalWithoutParensMultiLineCondition_Diagnostic()
     {
         // This is the exact scenario from the sample code
