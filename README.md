@@ -123,7 +123,7 @@ Install-Package Niklasifiera
 ### Via PackageReference
 
 ```xml
-<PackageReference Include="Niklasifiera" Version="1.0.7">
+<PackageReference Include="Niklasifiera" Version="1.0.10">
   <PrivateAssets>all</PrivateAssets>
   <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
 </PackageReference>

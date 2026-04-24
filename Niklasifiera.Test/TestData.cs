@@ -426,6 +426,68 @@ internal static class TestData
         }
         """;
 
+    // Open paren already on its own line, but the parameters are partially split: the last
+    // two share a line. Exercises the trivia-preservation fix path for multi-line signatures.
+    [StringSyntax("c#-test")]
+    public const string PrimaryConstructorWithOpenParenOnNewLineAndPartialSplit =
+        """
+        namespace TestNamespace
+        {
+            public class TestClass
+                {|#0:(
+                int parameter1,
+                string parameter2, double parameter3
+                )|}
+            {
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    public const string PrimaryConstructorWithOpenParenOnNewLineAndPartialSplitFixed =
+        """
+        namespace TestNamespace
+        {
+            public class TestClass
+                (
+                int parameter1,
+                string parameter2,
+                double parameter3
+                )
+            {
+            }
+        }
+        """;
+
+    // Open paren on the same line as the type identifier. Exercises the path where the fix
+    // must inject a newline between the identifier and the open paren.
+    [StringSyntax("c#-test")]
+    public const string PrimaryConstructorWithOpenParenOnSameLineAndMultipleParams =
+        """
+        namespace TestNamespace
+        {
+            public class TestClass{|#0:(int parameter1, string parameter2, double parameter3)|}
+            {
+            }
+        }
+        """;
+
+    [StringSyntax("c#-test")]
+    public const string PrimaryConstructorWithOpenParenOnSameLineAndMultipleParamsFixed =
+        """
+        namespace TestNamespace
+        {
+            public class TestClass
+                (
+                int parameter1,
+                string parameter2,
+                double parameter3
+                )
+            {
+            }
+        }
+        """;
+
     #endregion
 
     #region Test Case Data - Inheritance Diagnostics

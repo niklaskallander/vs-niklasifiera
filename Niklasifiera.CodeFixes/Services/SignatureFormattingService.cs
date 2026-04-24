@@ -496,43 +496,59 @@ public class SignatureFormattingService(IConfigurationService configurationServi
         ParameterListSyntax parameterList,
         ParenthesesFormattingContext context
         )
-        => CreateFormattedParen(parameterList, context, parameterList.OpenParenToken, SyntaxFactory.TriviaList());
+        => CreateFormattedParen(parameterList, context, parameterList.OpenParenToken, SyntaxFactory.TriviaList(), CreateOpenParenLeadingTrivia(parameterList.OpenParenToken, context.Indentation, context.LineEndingTrivia));
 
     private static SyntaxToken CreateFormattedCloseParen
         (
         ParameterListSyntax parameterList,
         ParenthesesFormattingContext context
         )
-        => CreateFormattedParen(parameterList, context, parameterList.CloseParenToken, context.FinalTrivia);
+        => CreateFormattedParen(parameterList, context, parameterList.CloseParenToken, context.FinalTrivia, CreateCloseParenLeadingTrivia(context.Indentation, context.LineEndingTrivia));
 
     private static SyntaxToken CreateFormattedParen
         (
         ParameterListSyntax parameterList,
         ParenthesesFormattingContext context,
         SyntaxToken syntaxToken,
-        SyntaxTriviaList newTrailingWhitespace
+        SyntaxTriviaList newTrailingWhitespace,
+        SyntaxTriviaList leadingTrivia
         )
-    {
-        var leadingTrivia =
-            CreateParenLeadingTrivia(context.Indentation, context.LineEndingTrivia);
-
-        return context.PreserveTrivia
-            ? parameterList.CloseParenToken
+        => context.PreserveTrivia
+            ? syntaxToken
                 .WithPreservedTrivia(leadingTrivia, newTrailingWhitespace)
             : SyntaxFactory
                 .Token(leadingTrivia, syntaxToken.Kind(), newTrailingWhitespace);
+
+    private static SyntaxTriviaList CreateOpenParenLeadingTrivia
+        (
+        SyntaxToken openParenToken,
+        string parenIndentation,
+        SyntaxTrivia lineEndingTrivia
+        )
+    {
+        // The token preceding `(` (e.g. the type or method identifier) lives outside the
+        // parameter list we're rebuilding and keeps its original trailing trivia. If that
+        // already ends with an EOL, adding one here would produce a blank line.
+        var precedingEndsWithEol =
+            openParenToken
+                .GetPreviousToken()
+                .TrailingTrivia
+                .LastOrDefault()
+                .IsKind(SyntaxKind.EndOfLineTrivia);
+
+        return precedingEndsWithEol
+            ? SyntaxFactory.TriviaList(SyntaxFactory.Whitespace(parenIndentation))
+            : SyntaxFactory.TriviaList(lineEndingTrivia, SyntaxFactory.Whitespace(parenIndentation));
     }
 
-    private static SyntaxTriviaList CreateParenLeadingTrivia
+    private static SyntaxTriviaList CreateCloseParenLeadingTrivia
         (
         string parenIndentation,
         SyntaxTrivia lineEndingTrivia
         )
-        => SyntaxFactory.TriviaList
-        (
-            lineEndingTrivia,
-            SyntaxFactory.Whitespace(parenIndentation)
-        );
+        // The last parameter's trailing trivia is reset during the rebuild, so the close
+        // paren is always responsible for emitting the newline that puts it on its own line.
+        => SyntaxFactory.TriviaList(lineEndingTrivia, SyntaxFactory.Whitespace(parenIndentation));
 
     #region Helper Methods
 

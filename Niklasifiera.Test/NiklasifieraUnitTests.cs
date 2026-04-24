@@ -285,6 +285,27 @@ public class NiklasifieraUnitTest
             "TestClass"
         );
 
+    // Tests for trivia preservation in signature formatting. These exercise
+    // FormatMultipleLinesAsync's preserveTrivia=true path, which previously
+    // crashed and produced layout glitches around the parentheses.
+    [TestMethod]
+    public async Task SignatureWithOpenParenOnNewLineAndPartialSplit_PreserveTrivia_FormatsWithoutBlankLine()
+        => await VerifySignatureTriviaPreservationAsync
+        (
+            PrimaryConstructorWithOpenParenOnNewLineAndPartialSplit,
+            PrimaryConstructorWithOpenParenOnNewLineAndPartialSplitFixed,
+            "TestClass"
+        );
+
+    [TestMethod]
+    public async Task SignatureWithOpenParenOnSameLine_PreserveTrivia_MovesOpenParenToOwnLine()
+        => await VerifySignatureTriviaPreservationAsync
+        (
+            PrimaryConstructorWithOpenParenOnSameLineAndMultipleParams,
+            PrimaryConstructorWithOpenParenOnSameLineAndMultipleParamsFixed,
+            "TestClass"
+        );
+
     // Helper method to reduce test duplication
     private static async Task VerifyCodeFixWithDiagnosticAsync
         (
@@ -294,6 +315,50 @@ public class NiklasifieraUnitTest
         )
         => await VerifyCS
             .VerifyCodeFixAsync(testCode, diagnostic, fixedCode);
+
+    private static async Task VerifySignatureTriviaPreservationAsync
+        (
+        string testCode,
+        string fixedCode,
+        string argumentValue
+        )
+    {
+        var mockConfig =
+            new MockConfigurationService
+            (
+                triviaHandling: TriviaHandlingBehavior.Preserve,
+                indentationUnit: "    ",
+                lineEnding: Environment.NewLine
+            );
+
+        var diagnostic =
+            DiagnosticHelper
+                .Signature()
+                .WithLocation(0)
+                .WithArguments(argumentValue);
+
+        TestableNiklasifieraCodeFixProvider.MockConfigurationService = mockConfig;
+
+        try
+        {
+            var test =
+                new CSharpCodeFixTest<NiklasifieraAnalyzer, TestableNiklasifieraCodeFixProvider, DefaultVerifier>
+                {
+                    TestCode = testCode.ReplaceLineEndings(),
+                    FixedCode = fixedCode.ReplaceLineEndings()
+                };
+
+            test.ExpectedDiagnostics
+                .Add(diagnostic);
+
+            await test
+                .RunAsync();
+        }
+        finally
+        {
+            TestableNiklasifieraCodeFixProvider.MockConfigurationService = null;
+        }
+    }
 
     // Helper method for trivia preservation tests
     private static async Task VerifyInheritanceTriviaPreservationAsync
@@ -308,7 +373,7 @@ public class NiklasifieraUnitTest
             (
                 triviaHandling: TriviaHandlingBehavior.Preserve,
                 indentationUnit: "    ",
-                lineEnding: "\r\n"
+                lineEnding: Environment.NewLine
             );
 
         var diagnostic =
@@ -431,13 +496,13 @@ internal class MockConfigurationService
     (
     TriviaHandlingBehavior triviaHandling = TriviaHandlingBehavior.Skip,
     string indentationUnit = "    ",
-    string lineEnding = "\r\n"
+    string lineEnding = ""
     )
     : IConfigurationService
 {
     private readonly TriviaHandlingBehavior _triviaHandling = triviaHandling;
     private readonly string _indentationUnit = indentationUnit;
-    private readonly string _lineEnding = lineEnding;
+    private readonly string _lineEnding = string.IsNullOrEmpty(lineEnding) ? Environment.NewLine : lineEnding;
 
     public Task<TriviaHandlingBehavior> GetTriviaHandlingBehaviorAsync(Microsoft.CodeAnalysis.Document document)
         => Task.FromResult(_triviaHandling);
